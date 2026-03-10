@@ -9,14 +9,13 @@ import random
 import re
 from pathlib import Path
 from dotenv import load_dotenv
-import google.generativeai as genai
+from groq import Groq
 from supabase import create_client, Client
 
 load_dotenv()
 
 # ── CLIENTS ──────────────────────────────────────────────────────
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-2.0-flash")
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_ANON_KEY")
@@ -240,12 +239,16 @@ def generate_question(
     # 3. Build prompt
     prompt = build_prompt(kpi, question_type, difficulty, examples, force_correct_answer)
 
-    # 4. Call Gemini
+    # 4. Call Groq
     try:
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.8
+        )
+        raw = response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"  ✗ Gemini API error: {e}")
+        print(f"  ✗ Groq API error: {e}")
         return None
 
     # 5. Parse JSON response

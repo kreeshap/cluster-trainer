@@ -280,6 +280,39 @@ async def get_user_stats(user=Depends(get_current_user)):
 
 
 # ─────────────────────────────────────────────
+# GENERATION ROUTES
+# ─────────────────────────────────────────────
+
+@app.post("/generate")
+async def generate_questions_route(body: GenerateRequest, user=Depends(get_current_user)):
+    """Generate new questions using Gemini + RAG. Protected route."""
+    from generator import generate_question, check_answer_balance
+
+    results = []
+    for _ in range(body.count):
+        balance = check_answer_balance(body.kpi_code.split(":")[0])
+        force   = balance["suggest"] if not balance["balanced"] else None
+        q = generate_question(
+            kpi_code=body.kpi_code,
+            question_type=body.question_type,
+            difficulty=body.difficulty,
+            force_correct_answer=force,
+            save_to_db=True
+        )
+        if q:
+            results.append(q)
+
+    return {"generated": len(results), "questions": results}
+
+
+@app.get("/balance/{cluster}")
+async def get_balance(cluster: str):
+    """Check answer distribution balance for a cluster."""
+    from generator import check_answer_balance
+    return check_answer_balance(cluster)
+
+
+# ─────────────────────────────────────────────
 # HEALTH CHECK
 # ─────────────────────────────────────────────
 
