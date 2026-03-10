@@ -521,49 +521,54 @@ async function enterApp(u) {
 
 // ── DASHBOARD ───────────────────────────────────────────
 async function loadDashboard() {
-  const [{data:qs},{data:hist}] = await Promise.all([
-    sb.from('questions').select('cluster,kpi_code').execute(),
-    sb.from('quiz_history').select('kpi_code,is_correct,cluster').eq('user_id',user.id).execute()
-  ]);
+  try {
+    const [{data:qs},{data:hist}] = await Promise.all([
+      sb.from('questions').select('cluster,kpi_code'),
+      sb.from('quiz_history').select('kpi_code,is_correct,cluster').eq('user_id',user.id)
+    ]);
 
-  const qRows=qs||[], hRows=hist||[];
-  const total=hRows.length, correct=hRows.filter(r=>r.is_correct).length;
-  const acc=total?Math.round(correct/total*100):null;
-  const cls_tried=[...new Set(hRows.map(r=>r.cluster))].length;
+    const qRows=qs||[], hRows=hist||[];
+    const total=hRows.length, correct=hRows.filter(r=>r.is_correct).length;
+    const acc=total?Math.round(correct/total*100):null;
+    const cls_tried=[...new Set(hRows.map(r=>r.cluster))].length;
 
-  document.getElementById('stat-total').textContent    = total||'0';
-  document.getElementById('stat-acc').innerHTML        = acc!==null?`${acc}<span>%</span>`:'—';
-  document.getElementById('stat-clusters').textContent = cls_tried||'0';
-  document.getElementById('stat-qcount').textContent   = qRows.length||'0';
+    document.getElementById('stat-total').textContent    = total||'0';
+    document.getElementById('stat-acc').innerHTML        = acc!==null?`${acc}<span>%</span>`:'—';
+    document.getElementById('stat-clusters').textContent = cls_tried||'0';
+    document.getElementById('stat-qcount').textContent   = qRows.length||'0';
 
-  const clusterQ={}, clusterH={};
-  qRows.forEach(q => { clusterQ[q.cluster]=(clusterQ[q.cluster]||0)+1; });
-  hRows.forEach(r => {
-    if(!clusterH[r.cluster]) clusterH[r.cluster]={c:0,t:0};
-    clusterH[r.cluster].t++;
-    if(r.is_correct) clusterH[r.cluster].c++;
-  });
+    const clusterQ={}, clusterH={};
+    qRows.forEach(q => { clusterQ[q.cluster]=(clusterQ[q.cluster]||0)+1; });
+    hRows.forEach(r => {
+      if(!clusterH[r.cluster]) clusterH[r.cluster]={c:0,t:0};
+      clusterH[r.cluster].t++;
+      if(r.is_correct) clusterH[r.cluster].c++;
+    });
 
-  const grid=document.getElementById('cluster-grid');
-  grid.innerHTML='';
-  const all=[...new Set([...Object.keys(clusterQ),...Object.keys(clusterH)])];
+    const grid=document.getElementById('cluster-grid');
+    grid.innerHTML='';
+    const all=[...new Set([...Object.keys(clusterQ),...Object.keys(clusterH)])];
 
-  if(!all.length){
-    grid.innerHTML='<p style="color:var(--muted);font-size:.9rem">No questions yet — run <code style="background:var(--input);padding:2px 6px;border-radius:4px">python generator.py</code> to generate questions.</p>';
-    return;
+    if(!all.length){
+      grid.innerHTML='<p style="color:var(--muted);font-size:.9rem">No questions yet — run <code style="background:var(--input);padding:2px 6px;border-radius:4px">python generator.py</code> to generate questions.</p>';
+      return;
+    }
+
+    all.forEach(cluster => {
+      const count=clusterQ[cluster]||0;
+      const ca=clusterH[cluster];
+      const pct=ca?Math.round(ca.c/ca.t*100):null;
+      const cls2=pct===null?'none':pct>=70?'good':pct>=40?'mid':'low';
+      const card=document.createElement('div');
+      card.className='cluster-card';
+      card.innerHTML=`<div class="c-acc ${cls2}">${pct!==null?pct+'%':'New'}</div><div class="c-name">${cluster}</div><div class="c-count">${count} question${count!==1?'s':''}</div>`;
+      card.onclick=()=>openSelector(cluster);
+      grid.appendChild(card);
+    });
+  } catch(e) {
+    console.error('Dashboard load error:', e);
+    document.getElementById('cluster-grid').innerHTML='<p style="color:var(--wrong);font-size:.9rem">Error loading dashboard. Please refresh.</p>';
   }
-
-  all.forEach(cluster => {
-    const count=clusterQ[cluster]||0;
-    const ca=clusterH[cluster];
-    const pct=ca?Math.round(ca.c/ca.t*100):null;
-    const cls2=pct===null?'none':pct>=70?'good':pct>=40?'mid':'low';
-    const card=document.createElement('div');
-    card.className='cluster-card';
-    card.innerHTML=`<div class="c-acc ${cls2}">${pct!==null?pct+'%':'New'}</div><div class="c-name">${cluster}</div><div class="c-count">${count} question${count!==1?'s':''}</div>`;
-    card.onclick=()=>openSelector(cluster);
-    grid.appendChild(card);
-  });
 }
 
 // ── SELECTOR ────────────────────────────────────────────
@@ -589,7 +594,7 @@ document.getElementById('btn-start-quiz').onclick = async () => {
   let q=sb.from('questions').select('*').eq('cluster',currentCluster);
   if(selDiff!=='all') q=q.eq('difficulty',selDiff);
   if(selType!=='all') q=q.eq('question_type',selType);
-  const {data}=await q.execute();
+  const {data}=await q;
   let qs=(data||[]).sort(()=>Math.random()-.5);
   if(!qs.length){ show('selector'); alert('No questions match those filters. Try different options.'); return; }
   const n=document.getElementById('sel-count').value;
@@ -643,7 +648,7 @@ async function pick(chosen,correct,q){
   if(q.explanation){ document.getElementById('expl-text').textContent=q.explanation; document.getElementById('expl-box').classList.add('show'); }
   document.getElementById('btn-next').classList.remove('hidden');
   try {
-    await sb.from('quiz_history').insert({user_id:user.id,question_id:q.id,kpi_code:q.kpi_code,cluster:q.cluster,selected_answer:chosen,is_correct:chosen===correct}).execute();
+    await sb.from('quiz_history').insert({user_id:user.id,question_id:q.id,kpi_code:q.kpi_code,cluster:q.cluster,selected_answer:chosen,is_correct:chosen===correct});
   } catch(e){}
 }
 
