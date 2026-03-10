@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cluster Trainer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-dark:    #0e2323;
+      --bg-panel:   #132d2d;
+      --bg-input:   #1a3a3a;
+      --border:     #1f4444;
+      --cyan:       #00b4d8;
+      --cyan-hover: #0090b8;
+      --white:      #ffffff;
+      --muted:      #7aa8a8;
+      --divider:    #1a3838;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-dark);
+      font-family: 'Barlow', sans-serif;
+      color: var(--white);
+      overflow: hidden;
+    }
+
+    /* ── PAGE SHELL ── */
+    .app { display: none; height: 100vh; }
+    .app.active { display: flex; }
+
+    /* ── AUTH LAYOUT ── */
+    .auth-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+      width: 100%;
+    }
+
+    /* LEFT PANEL */
+    .auth-left {
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 10%;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 0% 100%, rgba(0,180,216,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .auth-heading { font-size: 1.75rem; font-weight: 600; margin-bottom: 4px; }
+    .auth-sub     { font-size: 0.95rem; color: var(--muted); margin-bottom: 2.4rem; }
+
+    .field { margin-bottom: 1rem; }
+    .field input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      color: var(--white);
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input::placeholder { color: var(--muted); }
+    .field input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(0,180,216,.12);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 15px;
+      background: var(--cyan);
+      border: none;
+      border-radius: 8px;
+      color: var(--white);
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      margin-top: 0.5rem;
+    }
+    .btn-primary:hover  { background: var(--cyan-hover); }
+    .btn-primary:active { transform: scale(0.985); }
+
+    .auth-links {
+      margin-top: 1.4rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .auth-links a {
+      color: var(--white);
+      text-decoration: underline;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    .auth-links a:hover { color: var(--cyan); }
+
+    .auth-links.stack { display: flex; flex-direction: column; gap: 8px; }
+
+    .error-msg {
+      background: rgba(220,50,50,.15);
+      border: 1px solid rgba(220,50,50,.35);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      color: #f87171;
+      margin-bottom: 1rem;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    /* RIGHT PANEL */
+    .auth-right {
+      background: var(--bg-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 100% 50%, rgba(0,180,216,0.07) 0%, transparent 65%);
+    }
+    .brand-block { text-align: left; line-height: 1; z-index: 1; }
+    .brand-cluster {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(4rem, 8vw, 7rem);
+      letter-spacing: .01em;
+      color: var(--white);
+      display: block;
+    }
+    .brand-trainer {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(4rem, 8vw, 7rem);
+      letter-spacing: .01em;
+      color: var(--cyan);
+      display: block;
+    }
+
+    /* ── DASHBOARD ── */
+    .dashboard {
+      flex-direction: column;
+      background: var(--bg-dark);
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 36px;
+      border-bottom: 1px solid var(--divider);
+      background: var(--bg-panel);
+    }
+    .topbar-brand {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1.6rem;
+      letter-spacing: .04em;
+    }
+    .topbar-brand span { color: var(--cyan); }
+    .topbar-user {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .btn-logout {
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 7px 16px;
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-logout:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    .dash-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      padding: 40px;
+    }
+    .dash-welcome {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 2.4rem;
+      color: var(--white);
+      letter-spacing: .03em;
+    }
+    .dash-welcome span { color: var(--cyan); }
+    .dash-sub { color: var(--muted); font-size: 1rem; }
+
+    /* ── FADE IN ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .auth-left > * {
+      animation: fadeUp .45s ease both;
+    }
+    .auth-left > *:nth-child(1) { animation-delay: .05s; }
+    .auth-left > *:nth-child(2) { animation-delay: .10s; }
+    .auth-left > *:nth-child(3) { animation-delay: .15s; }
+    .auth-left > *:nth-child(4) { animation-delay: .20s; }
+    .auth-left > *:nth-child(5) { animation-delay: .25s; }
+    .auth-left > *:nth-child(6) { animation-delay: .30s; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SIGN IN PAGE
+══════════════════════════════════════ -->
+<div id="page-signin" class="app active">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Welcome</h1>
+      <p class="auth-sub">Sign in to your account</p>
+
+      <div class="error-msg" id="signin-error"></div>
+
+      <div class="field">
+        <input type="email" id="signin-email" placeholder="email@email.com" autocomplete="email" />
+      </div>
+      <div class="field">
+        <input type="password" id="signin-password" placeholder="password" autocomplete="current-password" />
+      </div>
+
+      <button class="btn-primary" id="btn-signin">Sign In</button>
+
+      <div class="auth-links stack">
+        <span><a id="go-forgot">Forgot your password?</a></span>
+        <span>Don't have an account? <a id="go-signup-from-signin">Sign up!</a></span>
+      </div>
+    </div>
+
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SIGN UP PAGE
+══════════════════════════════════════ -->
+<div id="page-signup" class="app">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Get started!</h1>
+      <p class="auth-sub">Create an account</p>
+
+      <div class="error-msg" id="signup-error"></div>
+
+      <div class="field">
+        <input type="email" id="signup-email" placeholder="email@email.com" autocomplete="email" />
+      </div>
+      <div class="field">
+        <input type="password" id="signup-password" placeholder="password" autocomplete="new-password" />
+      </div>
+
+      <button class="btn-primary" id="btn-signup">Sign Up</button>
+
+      <div class="auth-links">
+        Already have an account? <a id="go-signin-from-signup">Sign in!</a>
+      </div>
+    </div>
+
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FORGOT PASSWORD PAGE
+══════════════════════════════════════ -->
+<div id="page-forgot" class="app">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Reset Password</h1>
+      <p class="auth-sub">Enter your email to receive a reset link</p>
+
+      <div class="error-msg" id="forgot-error"></div>
+
+      <div class="field">
+        <input type="email" id="forgot-email" placeholder="email@email.com" autocomplete="email" />
+      </div>
+
+      <button class="btn-primary" id="btn-forgot">Send Reset Link</button>
+
+      <div class="auth-links">
+        <a id="go-signin-from-forgot">Back to Sign In</a>
+      </div>
+    </div>
+
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     DASHBOARD (post-login)
+══════════════════════════════════════ -->
+<div id="page-dashboard" class="app dashboard">
+  <header class="topbar">
+    <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
+    <div class="topbar-user">
+      <span id="dash-email-display"></span>
+      <button class="btn-logout" id="btn-logout">Log Out</button>
+    </div>
+  </header>
+  <main class="dash-body">
+    <p class="dash-welcome">Welcome back, <span id="dash-name"></span></p>
+    <p class="dash-sub">Your dashboard is loading...</p>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════
+     SUPABASE + APP LOGIC
+══════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ── CONFIG ── replace with your real values ──────────────────────
+  const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+  const SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY';
+  // ─────────────────────────────────────────────────────────────────
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ── PAGE ROUTER ────────────────────────────────────────────────
+  const pages = ['signin','signup','forgot','dashboard'];
+  function showPage(name) {
+    pages.forEach(p => {
+      const el = document.getElementById('page-' + p);
+      el.classList.toggle('active', p === name);
+    });
+  }
+
+  // ── NAV BINDINGS ───────────────────────────────────────────────
+  document.getElementById('go-signup-from-signin').onclick   = () => showPage('signup');
+  document.getElementById('go-signin-from-signup').onclick   = () => showPage('signin');
+  document.getElementById('go-forgot').onclick               = () => showPage('forgot');
+  document.getElementById('go-signin-from-forgot').onclick   = () => showPage('signin');
+
+  // ── HELPERS ────────────────────────────────────────────────────
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function clearError(id) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('show');
+  }
+  function setLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Please wait…' : btn.dataset.label;
+  }
+
+  // cache default labels
+  ['btn-signin','btn-signup','btn-forgot'].forEach(id => {
+    const b = document.getElementById(id);
+    b.dataset.label = b.textContent;
+  });
+
+  // ── SIGN IN ────────────────────────────────────────────────────
+  document.getElementById('btn-signin').onclick = async () => {
+    clearError('signin-error');
+    const email    = document.getElementById('signin-email').value.trim();
+    const password = document.getElementById('signin-password').value;
+    if (!email || !password) return showError('signin-error', 'Please fill in all fields.');
+
+    const btn = document.getElementById('btn-signin');
+    setLoading(btn, true);
+
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    setLoading(btn, false);
+
+    if (error) return showError('signin-error', error.message);
+    enterDashboard(data.user);
+  };
+
+  // ── SIGN UP ────────────────────────────────────────────────────
+  document.getElementById('btn-signup').onclick = async () => {
+    clearError('signup-error');
+    const email    = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    if (!email || !password) return showError('signup-error', 'Please fill in all fields.');
+    if (password.length < 6)  return showError('signup-error', 'Password must be at least 6 characters.');
+
+    const btn = document.getElementById('btn-signup');
+    setLoading(btn, true);
+
+    const { data, error } = await sb.auth.signUp({ email, password });
+    setLoading(btn, false);
+
+    if (error) return showError('signup-error', error.message);
+    // If email confirmation is off, user is auto-confirmed
+    if (data.user && data.session) {
+      enterDashboard(data.user);
+    } else {
+      showError('signup-error', '✓ Check your email to confirm your account, then sign in.');
+      document.getElementById('signup-error').style.color = '#4ade80';
+      document.getElementById('signup-error').style.borderColor = 'rgba(74,222,128,.35)';
+      document.getElementById('signup-error').style.background  = 'rgba(74,222,128,.08)';
+    }
+  };
+
+  // ── FORGOT PASSWORD ────────────────────────────────────────────
+  document.getElementById('btn-forgot').onclick = async () => {
+    clearError('forgot-error');
+    const email = document.getElementById('forgot-email').value.trim();
+    if (!email) return showError('forgot-error', 'Please enter your email address.');
+
+    const btn = document.getElementById('btn-forgot');
+    setLoading(btn, true);
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+    setLoading(btn, false);
+
+    if (error) return showError('forgot-error', error.message);
+    showError('forgot-error', '✓ Reset link sent! Check your inbox.');
+    document.getElementById('forgot-error').style.color = '#4ade80';
+    document.getElementById('forgot-error').style.borderColor = 'rgba(74,222,128,.35)';
+    document.getElementById('forgot-error').style.background  = 'rgba(74,222,128,.08)';
+  };
+
+  // ── LOG OUT ────────────────────────────────────────────────────
+  document.getElementById('btn-logout').onclick = async () => {
+    await sb.auth.signOut();
+    showPage('signin');
+  };
+
+  // ── DASHBOARD ──────────────────────────────────────────────────
+  function enterDashboard(user) {
+    document.getElementById('dash-email-display').textContent = user.email;
+    document.getElementById('dash-name').textContent = user.email.split('@')[0];
+    showPage('dashboard');
+  }
+
+  // ── SESSION RESTORE ────────────────────────────────────────────
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) enterDashboard(session.user);
+    else showPage('signin');
+  })();
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') showPage('signin');
+  });
+</script>
+</body>
+</html>
