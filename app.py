@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from typing import Optional, List
@@ -36,11 +36,11 @@ security = HTTPBearer()
 # ─────────────────────────────────────────────
 
 class SignUpRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class SignInRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class QuizAttemptRequest(BaseModel):
@@ -205,7 +205,6 @@ async def get_question(question_id: str):
 @app.post("/quiz/attempt")
 async def submit_attempt(body: QuizAttemptRequest, user=Depends(get_current_user)):
     """Submit a quiz answer and return whether it was correct."""
-    # Fetch the question's correct answer
     q = (
         supabase.table("questions")
         .select("correct, explanation, kpi_code")
@@ -218,7 +217,6 @@ async def submit_attempt(body: QuizAttemptRequest, user=Depends(get_current_user
 
     is_correct = body.selected_answer.upper() == q.data["correct"].upper()
 
-    # Log the attempt
     supabase.table("quiz_history").insert({
         "user_id": user.id,
         "question_id": body.question_id,
