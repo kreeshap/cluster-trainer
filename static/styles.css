@@ -43,12 +43,21 @@ html, body { height:100%; background:var(--bg); font-family:'Barlow',sans-serif;
   cursor:pointer;transition:border-color .2s,color .2s;
 }
 .btn-sm:hover { border-color:var(--cyan);color:var(--cyan); }
+
+/* ── SETTINGS ICON BUTTON — clearly visible ── */
 .btn-icon {
-  background:transparent;border:1.5px solid var(--border);border-radius:6px;
-  color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;
-  cursor:pointer;transition:border-color .2s,color .2s;
+  background:transparent;
+  border:1.5px solid var(--border2);
+  border-radius:6px;
+  color:var(--white);
+  width:34px;height:34px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:border-color .2s,color .2s,background .2s;
+  flex-shrink:0;
 }
-.btn-icon:hover { border-color:var(--cyan);color:var(--cyan); }
+.btn-icon svg { display:block; }
+.btn-icon:hover { border-color:var(--cyan);color:var(--cyan);background:var(--cyan-glow); }
 
 /* ── AUTH ── */
 .auth-layout { display:grid;grid-template-columns:1fr 1fr;height:100vh; }
