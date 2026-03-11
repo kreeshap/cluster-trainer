@@ -1,6 +1,6 @@
 // ── SUPABASE CONFIG ─────────────────────────────────────
 const SUPABASE_URL = 'https://dplxjjzsrsfewiwejogn.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Keeping your key
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwbHhqanpzcnNmZXdpd2Vqb2duIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjE0MzUsImV4cCI6MjA4ODczNzQzNX0.gfu8W7P-6FVE-95kJ7kXU4D5YAT_fTplTjzsGw_3ues'; // Keeping your key
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
