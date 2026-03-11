@@ -39,24 +39,16 @@
     <div class="settings-card">
       <div class="field">
         <label>Display Name</label>
-        <input type="text" id="inp-name" placeholder="e.g. Alex" maxlength="32" autocomplete="off"/>
+        <input type="text" id="inp-name" placeholder="e.g. kreesha" maxlength="32" autocomplete="off"/>
       </div>
       <div class="field">
-        <label>Favorite Cluster <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(shown first on dashboard)</span></label>
+        <label>Your Cluster <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(shown first on dashboard)</span></label>
         <select id="inp-cluster">
-          <option value="">— None —</option>
+          <option value="">None selected</option>
           <!-- Populated from DB -->
         </select>
       </div>
-      <div class="field">
-        <label>Default Difficulty <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(pre-selected on quiz selector)</span></label>
-        <select id="inp-diff">
-          <option value="all">All (no preference)</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
+      
 
       <div class="ok-box"  id="profile-ok"></div>
       <div class="err-box" id="profile-err"></div>
@@ -96,10 +88,7 @@
         <span class="a-label">Overall Accuracy</span>
         <span class="a-val" id="stat-accuracy">—</span>
       </div>
-      <div class="account-info">
-        <span class="a-label">Best Cluster</span>
-        <span class="a-val" id="stat-best">—</span>
-      </div>
+
       <div class="account-info">
         <span class="a-label">Needs Work</span>
         <span class="a-val" id="stat-worst" style="color:var(--wrong)">—</span>
@@ -109,7 +98,7 @@
 
   <!-- DANGER ZONE -->
   <div class="settings-section">
-    <p class="section-title">Danger Zone</p>
+    <p class="section-title">DELETE</p>
     <div class="danger-zone">
       <p>Permanently clear your entire quiz history. Your account will not be deleted.</p>
       <button class="btn-danger" id="btn-clear-history">Clear Quiz History</button>
@@ -142,9 +131,6 @@ function showMsg(id, msg, isErr) {
   document.getElementById('acct-email').textContent = currentUser.email;
   document.getElementById('acct-id').textContent    = currentUser.id;
 
-  // Set difficulty default
-  const diff = meta.default_difficulty || 'all';
-  document.getElementById('inp-diff').value = diff;
 
   // Load clusters from DB
   const { data: qs } = await sb.from('questions').select('cluster');
@@ -199,7 +185,6 @@ document.getElementById('btn-save-profile').onclick = async () => {
     data: {
       display_name:       name || null,
       favorite_cluster:   clus || null,
-      default_difficulty: diff,
     }
   });
 
@@ -223,7 +208,6 @@ document.getElementById('btn-reset-pw').onclick = async () => {
 
 // Clear history
 document.getElementById('btn-clear-history').onclick = async () => {
-  if (!confirm('Are you sure? This will permanently delete all your quiz history.')) return;
   const { error } = await sb.from('quiz_history').delete().eq('user_id', currentUser.id);
   if (error) { alert(error.message); return; }
   showMsg('danger-ok', '✓ Quiz history cleared.', false);
