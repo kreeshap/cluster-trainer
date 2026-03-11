@@ -1,5 +1,7 @@
 import os
-from flask import Flask, request, jsonify, abort, g
+import threading
+import pathlib
+from flask import Flask, request, jsonify, abort, g, redirect, send_from_directory
 from flask_cors import CORS
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -16,6 +18,10 @@ supabase_admin: Client = create_client(url, service_key)
 
 app = Flask(__name__)
 CORS(app)  # tighten origins in production
+
+# ── In-memory job tracker for /generate/all ──────────────────
+_bulk_job: dict = {"running": False, "progress": 0, "total": 0, "failed": 0, "done": False, "error": None}
+_bulk_job_lock = threading.Lock()
 
 
 # ─────────────────────────────────────────────
@@ -46,6 +52,7 @@ def require_auth(f):
 @app.errorhandler(400)
 @app.errorhandler(401)
 @app.errorhandler(404)
+@app.errorhandler(409)
 @app.errorhandler(422)
 def handle_error(e):
     return jsonify({"detail": e.description}), e.code
@@ -310,6 +317,103 @@ def generate_questions_route():
     return jsonify({"generated": len(results), "questions": results})
 
 
+@app.post("/generate/all")
+@require_auth
+def generate_all_route():
+    """
+    Kick off bulk generation for every KPI (or a subset).
+    Runs in a background thread so the request returns immediately.
+    Poll GET /generate/all/status to track progress.
+    """
+    global _bulk_job
+
+    with _bulk_job_lock:
+        if _bulk_job["running"]:
+            abort(409, description="A bulk generation job is already running.")
+
+        from generator import load_kpi_knowledge_base
+
+        body               = request.get_json(force=True) or {}
+        kpi_codes          = body.get("kpi_codes")          # None = all KPIs
+        questions_per_kpi  = int(body.get("questions_per_kpi", 20))
+
+        kb      = load_kpi_knowledge_base()
+        targets = kpi_codes if kpi_codes else list(kb.keys())
+        total   = len(targets) * questions_per_kpi
+
+        _bulk_job.update({
+            "running":  True,
+            "progress": 0,
+            "total":    total,
+            "failed":   0,
+            "done":     False,
+            "error":    None,
+        })
+
+    def _run():
+        global _bulk_job
+        try:
+            from generator import (
+                load_kpi_knowledge_base, generate_question,
+                check_answer_balance, _PLAN_20
+            )
+
+            kb2 = load_kpi_knowledge_base()
+
+            def plan_for(n):
+                base = _PLAN_20 * (n // len(_PLAN_20) + 1)
+                return base[:n]
+
+            for kpi_code in targets:
+                kpi = kb2.get(kpi_code)
+                if not kpi:
+                    continue
+                for q_type, diff in plan_for(questions_per_kpi):
+                    balance = check_answer_balance(kpi["cluster"])
+                    force   = balance["suggest"] if not balance["balanced"] else None
+                    result  = generate_question(
+                        kpi_code=kpi_code, question_type=q_type,
+                        difficulty=diff, force_correct_answer=force, save_to_db=True
+                    )
+                    with _bulk_job_lock:
+                        if result:
+                            _bulk_job["progress"] += 1
+                        else:
+                            _bulk_job["failed"] += 1
+
+            with _bulk_job_lock:
+                _bulk_job["running"] = False
+                _bulk_job["done"]    = True
+
+        except Exception as e:
+            with _bulk_job_lock:
+                _bulk_job["running"] = False
+                _bulk_job["error"]   = str(e)
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+
+    return jsonify({
+        "message":          f"Bulk generation started for {len(targets)} KPIs × {questions_per_kpi} questions = {total} total.",
+        "kpis":             len(targets),
+        "questions_per_kpi": questions_per_kpi,
+        "total_target":     total,
+    })
+
+
+@app.get("/generate/all/status")
+@require_auth
+def generate_all_status():
+    """Poll this endpoint to check bulk generation progress."""
+    with _bulk_job_lock:
+        snapshot = dict(_bulk_job)
+    snapshot["percent"] = (
+        round(snapshot["progress"] / snapshot["total"] * 100, 1)
+        if snapshot["total"] else 0
+    )
+    return jsonify(snapshot)
+
+
 @app.get("/balance/<cluster>")
 def get_balance(cluster):
     """Check answer distribution balance for a cluster."""
@@ -335,32 +439,22 @@ def health():
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
 
+# ─────────────────────────────────────────────
+# FRONTEND STATIC FILES
+# ─────────────────────────────────────────────
+
 @app.get("/app")
 @app.get("/app/")
 def serve_frontend_root():
-    from flask import redirect
     return redirect("/app/index.html")
 
 
 @app.get("/app/<path:filename>")
 def serve_frontend_file(filename):
-    """
-    Serve any frontend file from the folder containing this script,
-    or a subfolder if FRONTEND_DIR is set in .env.
-
-    File layout options:
-      A) Flat (default): app_flask.py, index.html, dashboard.html,
-                         selector.html, quiz.html, results.html,
-                         settings.html, styles.css, common.js all together.
-      B) Subfolder: put HTML/CSS/JS in a frontend/ folder and add
-                    FRONTEND_DIR=frontend to your .env
-    """
-    import pathlib
-    from flask import send_from_directory
-    base = pathlib.Path(__file__).parent
+    pathlib.Path(__file__).parent
     frontend_dir = os.environ.get("FRONTEND_DIR", "")
-    folder = str(base / frontend_dir) if frontend_dir else str(base)
-    safe_ext = {".html", ".css", ".js", ".ico", ".png", ".svg", ".jpg", ".webp"}
+    folder       = str(base / frontend_dir) if frontend_dir else str(base)
+    safe_ext     = {".html", ".css", ".js", ".ico", ".png", ".svg", ".jpg", ".webp"}
     if pathlib.Path(filename).suffix.lower() not in safe_ext:
         abort(404, description="File not found")
     return send_from_directory(folder, filename)

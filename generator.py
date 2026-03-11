@@ -1,6 +1,6 @@
 """
 generator.py — Cluster Trainer Question Generator
-Uses Google Gemini (free) + RAG from kpi_knowledge_base.json + parsed question examples
+Uses Groq + RAG from kpi_knowledge_base.json + parsed question examples
 """
 
 import os
@@ -44,16 +44,9 @@ def get_kpi_context(kpi_code: str) -> dict | None:
     return kb.get(kpi_code)
 
 
-# ════════════════════════════════════════════════════════════════
-#  STEP 2 — STYLE EXAMPLES (RAG layer)
-# ════════════════════════════════════════════════════════════════
 
 def get_style_examples(cluster: str, question_type: str, n: int = 5) -> list[dict]:
-    """
-    Fetch real parsed questions from the database filtered by cluster + type.
-    These are injected as style examples ONLY — not for content.
-    Falls back to any cluster if not enough examples found.
-    """
+    
     response = (
         supabase.table("questions")
         .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
@@ -80,10 +73,6 @@ def get_style_examples(cluster: str, question_type: str, n: int = 5) -> list[dic
     # pick n random examples
     return random.sample(examples, min(n, len(examples)))
 
-
-# ════════════════════════════════════════════════════════════════
-#  STEP 3 — ANSWER BALANCE CHECKER
-# ════════════════════════════════════════════════════════════════
 
 def check_answer_balance(cluster: str) -> dict:
     """
@@ -117,11 +106,6 @@ def check_answer_balance(cluster: str) -> dict:
         "overrepresented": overrepresented,
         "suggest": underrepresented[0] if underrepresented else None
     }
-
-
-# ════════════════════════════════════════════════════════════════
-#  STEP 4 — PROMPT BUILDER
-# ════════════════════════════════════════════════════════════════
 
 def build_prompt(
     kpi: dict,
@@ -164,7 +148,6 @@ Real World Context: {kpi['real_world_context']}
 Common Misconceptions: {kpi['common_misconceptions']}
 {difficulty.capitalize()} Angle to Use: {angle}
 
-══ STYLE EXAMPLES (use these for format and tone ONLY — not content) ══
 {examples_text if examples_text else "No examples available — write in standard DECA exam style."}
 
 ══ YOUR TASK ══
@@ -202,11 +185,6 @@ Return ONLY valid JSON in this exact format — no markdown, no extra text:
 
     return prompt
 
-
-# ════════════════════════════════════════════════════════════════
-#  STEP 5 — GENERATE ONE QUESTION
-# ════════════════════════════════════════════════════════════════
-
 def generate_question(
     kpi_code: str,
     question_type: str,
@@ -214,19 +192,7 @@ def generate_question(
     force_correct_answer: str | None = None,
     save_to_db: bool = True
 ) -> dict | None:
-    """
-    Generate one DECA question using Gemini + RAG.
     
-    Args:
-        kpi_code:            e.g. "FI:062"
-        question_type:       "calculation" | "scenario" | "definition" | "application"
-        difficulty:          "easy" | "medium" | "hard"
-        force_correct_answer: "A" | "B" | "C" | "D" — force a specific correct answer
-        save_to_db:          whether to insert the result into Supabase
-    
-    Returns:
-        The generated question dict, or None on failure
-    """
     # 1. Load KPI context
     kpi = get_kpi_context(kpi_code)
     if not kpi:
@@ -253,7 +219,6 @@ def generate_question(
 
     # 5. Parse JSON response
     try:
-        # Strip markdown fences if present
         clean = re.sub(r"```(?:json)?|```", "", raw).strip()
         question = json.loads(clean)
     except json.JSONDecodeError as e:
@@ -273,108 +238,141 @@ def generate_question(
         try:
             result = supabase.table("questions").insert(question).execute()
             question["id"] = result.data[0]["id"] if result.data else None
-            print(f"  ✓ Saved to DB: {kpi_code} [{question_type}/{difficulty}] correct={question['correct']}")
+            print(f"  ✓ Saved: {kpi_code} [{question_type}/{difficulty}] correct={question['correct']}")
         except Exception as e:
             print(f"  ✗ DB insert error: {e}")
 
     return question
 
+# 20-slot plan: 5 types × 4 difficulties, each type gets exactly 5 questions
+# spread: definition×4, scenario×6, application×4, calculation×4, scenario(hard)×2
+# simplified as a fixed 20-item sequence covering all types & difficulties evenly
+_PLAN_20: list[tuple[str, str]] = [
+    # (question_type, difficulty)
+    ("definition",   "easy"),
+    ("definition",   "medium"),
+    ("definition",   "hard"),
+    ("definition",   "medium"),
+    ("scenario",     "easy"),
+    ("scenario",     "easy"),
+    ("scenario",     "medium"),
+    ("scenario",     "medium"),
+    ("scenario",     "hard"),
+    ("scenario",     "hard"),
+    ("application",  "easy"),
+    ("application",  "medium"),
+    ("application",  "medium"),
+    ("application",  "hard"),
+    ("calculation",  "easy"),
+    ("calculation",  "easy"),
+    ("calculation",  "medium"),
+    ("calculation",  "medium"),
+    ("calculation",  "hard"),
+    ("calculation",  "hard"),
+]
 
-# ════════════════════════════════════════════════════════════════
-#  STEP 6 — BATCH GENERATION (run_generation.py logic)
-# ════════════════════════════════════════════════════════════════
 
 def run_generation_batch(
     kpi_codes: list[str] | None = None,
-    questions_per_kpi: int = 5,
-    check_balance_every: int = 50
+    questions_per_kpi: int = 20,
+    check_balance_every: int = 50,
 ):
     """
-    Generate questions for all KPIs in the knowledge base.
-    Runs answer balance check every N questions.
-    
+    Generate questions for all (or specified) KPIs.
+
     Args:
-        kpi_codes:            Specific KPI codes to generate for. None = all KPIs.
-        questions_per_kpi:    How many questions to generate per KPI.
-        check_balance_every:  Run balance check after every N questions generated.
+        kpi_codes:           Specific KPI codes to target. None = all KPIs.
+        questions_per_kpi:   How many questions per KPI (default 20).
+        check_balance_every: Print balance report after every N questions.
     """
     kb = load_kpi_knowledge_base()
     targets = kpi_codes if kpi_codes else list(kb.keys())
 
-    question_types = ["definition", "scenario", "application", "calculation", "scenario"]
-    difficulties   = ["easy", "medium", "hard", "medium", "hard"]
+    # Build per-kpi plan — cycle through _PLAN_20 if questions_per_kpi != 20
+    def plan_for(n: int) -> list[tuple[str, str]]:
+        base = _PLAN_20 * (n // len(_PLAN_20) + 1)
+        return base[:n]
 
-    total_generated = 0
     total_target    = len(targets) * questions_per_kpi
-    clusters_seen   = set()
+    total_generated = 0
+    total_failed    = 0
+    clusters_seen: set[str] = set()
 
-    print(f"\n{'='*55}")
-    print(f"  Cluster Trainer — Question Generation Batch")
-    print(f"  KPIs: {len(targets)}  |  Per KPI: {questions_per_kpi}  |  Total: {total_target}")
-    print(f"{'='*55}\n")
+    print(f"\n{'='*60}")
+    print(f"  Cluster Trainer — Bulk Question Generation")
+    print(f"  KPIs: {len(targets)}  |  Per KPI: {questions_per_kpi}  |  Total target: {total_target}")
+    print(f"{'='*60}\n")
 
     for kpi_code in targets:
         kpi = kb.get(kpi_code)
         if not kpi:
-            print(f"Skipping unknown KPI: {kpi_code}")
+            print(f"⚠ Skipping unknown KPI: {kpi_code}")
             continue
 
-        print(f"► {kpi_code} — {kpi['kpi_name']}")
+        print(f"\n► [{targets.index(kpi_code)+1}/{len(targets)}] {kpi_code} — {kpi['kpi_name']}")
         clusters_seen.add(kpi["cluster"])
+        plan = plan_for(questions_per_kpi)
+        kpi_generated = 0
 
-        for i in range(questions_per_kpi):
-            q_type  = question_types[i % len(question_types)]
-            diff    = difficulties[i % len(difficulties)]
-
-            # Check balance to decide if we should force a letter
+        for i, (q_type, diff) in enumerate(plan):
+            # Decide whether to force a letter for balance
             balance = check_answer_balance(kpi["cluster"])
             force   = balance["suggest"] if not balance["balanced"] else None
 
-            print(f"  [{i+1}/{questions_per_kpi}] {q_type}/{diff}", end="")
+            label = f"[{i+1:02d}/{questions_per_kpi}] {q_type:<12} {diff:<8}"
             if force:
-                print(f" (forcing correct={force})", end="")
-            print()
+                label += f" → force={force}"
+            print(f"  {label}", end=" ", flush=True)
 
-            result = generate_question(kpi_code, q_type, diff, force_correct_answer=force)
+            result = generate_question(
+                kpi_code=kpi_code,
+                question_type=q_type,
+                difficulty=diff,
+                force_correct_answer=force,
+                save_to_db=True,
+            )
 
             if result:
                 total_generated += 1
+                kpi_generated   += 1
+            else:
+                total_failed += 1
+                print("  ✗ FAILED")
 
-            # Balance check every N questions
+            # Periodic balance report
             if total_generated > 0 and total_generated % check_balance_every == 0:
-                print(f"\n  ── Balance Check at {total_generated} questions ──")
+                print(f"\n  ── Balance Check @ {total_generated} questions generated ──")
                 for cluster in clusters_seen:
                     b = check_answer_balance(cluster)
-                    print(f"  {cluster}: {b['percentages']}")
-                    if not b["balanced"]:
-                        print(f"    ⚠ Over-represented: {b['overrepresented']}")
+                    status = "✓" if b["balanced"] else "⚠"
+                    print(f"  {status} {cluster}: {b.get('percentages', {})}")
                 print()
 
-        print(f"  Generated {total_generated}/{total_target} total\n")
+        print(f"  └─ KPI done: {kpi_generated}/{questions_per_kpi} saved  "
+              f"(running total: {total_generated}/{total_target})")
 
-    print(f"\n{'='*55}")
-    print(f"  ✓ Complete: {total_generated}/{total_target} questions generated")
-    print(f"{'='*55}")
+    #Final summary
+    print(f"\n{'='*60}")
+    print(f"  ✓ Generation complete")
+    print(f"  Generated : {total_generated}")
+    print(f"  Failed    : {total_failed}")
+    print(f"  Target    : {total_target}")
+    print(f"{'='*60}")
 
-    # Final balance report
     print("\n── Final Answer Balance Report ──")
-    for cluster in clusters_seen:
+    for cluster in sorted(clusters_seen):
         b = check_answer_balance(cluster)
         status = "✓ Balanced" if b["balanced"] else "⚠ Unbalanced"
-        print(f"  {cluster}: {b['percentages']} {status}")
+        print(f"  {cluster}: {b.get('percentages', {})}  {status}")
 
 
-# ════════════════════════════════════════════════════════════════
-#  ENTRY POINT
-# ════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1:
-        # e.g. python generator.py FI:062 FI:064
-        kpi_list = sys.argv[1:]
-        run_generation_batch(kpi_codes=kpi_list, questions_per_kpi=5)
+        # e.g.  python generator.py FI:062 FI:064
+        run_generation_batch(kpi_codes=sys.argv[1:], questions_per_kpi=20)
     else:
-        # Generate for all KPIs in the knowledge base
-        run_generation_batch(questions_per_kpi=5)
+        # Generate 20 questions for every KPI in the knowledge base
+        run_generation_batch(questions_per_kpi=20)

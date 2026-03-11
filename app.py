@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends, status
+import asyncio
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import RedirectResponse, FileResponse
@@ -30,11 +31,6 @@ app.add_middleware(
 )
 
 security = HTTPBearer()
-
-# ── FRONTEND STATIC FILES ─────────────────────────────────
-# Same layout options as Flask:
-#   A) Flat:      all HTML/CSS/JS sit next to app.py
-#   B) Subfolder: set FRONTEND_DIR=frontend in .env
 _base         = pathlib.Path(__file__).parent
 _frontend_dir = os.environ.get("FRONTEND_DIR", "")
 _frontend     = _base / _frontend_dir if _frontend_dir else _base
@@ -42,9 +38,9 @@ _frontend     = _base / _frontend_dir if _frontend_dir else _base
 app.mount("/app", StaticFiles(directory=str(_frontend), html=True), name="frontend")
 
 
-# ─────────────────────────────────────────────
-# MODELS
-# ─────────────────────────────────────────────
+# ── In-memory job tracker for /generate/all ──────────────────
+_bulk_job: dict = {"running": False, "progress": 0, "total": 0, "failed": 0, "done": False, "error": None}
+
 
 class SignUpRequest(BaseModel):
     email: str
@@ -65,10 +61,10 @@ class GenerateRequest(BaseModel):
     difficulty: str
     count: int = 1
 
+class GenerateAllRequest(BaseModel):
+    kpi_codes: Optional[list[str]] = None   # None = all KPIs
+    questions_per_kpi: int = 20
 
-# ─────────────────────────────────────────────
-# AUTH HELPERS
-# ─────────────────────────────────────────────
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
@@ -79,9 +75,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
 
-# ─────────────────────────────────────────────
-# AUTH ROUTES
-# ─────────────────────────────────────────────
 
 @app.post("/auth/signup")
 async def sign_up(body: SignUpRequest):
@@ -111,9 +104,6 @@ async def sign_out(user=Depends(get_current_user)):
     return {"message": "Signed out successfully"}
 
 
-# ─────────────────────────────────────────────
-# CLUSTER / KPI ROUTES
-# ─────────────────────────────────────────────
 
 @app.get("/clusters")
 async def get_clusters():
@@ -135,9 +125,6 @@ async def get_kpi(kpi_code: str):
     return response.data
 
 
-# ─────────────────────────────────────────────
-# QUESTION ROUTES
-# ─────────────────────────────────────────────
 
 @app.get("/questions")
 async def get_questions(
@@ -164,11 +151,6 @@ async def get_question(question_id: str):
     if not response.data:
         raise HTTPException(status_code=404, detail="Question not found")
     return response.data
-
-
-# ─────────────────────────────────────────────
-# QUIZ / ATTEMPT ROUTES
-# ─────────────────────────────────────────────
 
 @app.post("/quiz/attempt")
 async def submit_attempt(body: QuizAttemptRequest, user=Depends(get_current_user)):
@@ -209,9 +191,6 @@ async def get_user_stats(user=Depends(get_current_user)):
     ]
 
 
-# ─────────────────────────────────────────────
-# GENERATION ROUTES
-# ─────────────────────────────────────────────
 
 @app.post("/generate")
 async def generate_questions_route(body: GenerateRequest, user=Depends(get_current_user)):
@@ -228,15 +207,106 @@ async def generate_questions_route(body: GenerateRequest, user=Depends(get_curre
             results.append(q)
     return {"generated": len(results), "questions": results}
 
+
+@app.post("/generate/all")
+async def generate_all_route(
+    body: GenerateAllRequest,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user),
+):
+    """
+    Kick off bulk generation for every KPI (or a subset).
+    Runs in the background so the request returns immediately.
+    Poll GET /generate/all/status to track progress.
+    """
+    global _bulk_job
+
+    if _bulk_job["running"]:
+        raise HTTPException(status_code=409, detail="A bulk generation job is already running.")
+
+    from generator import load_kpi_knowledge_base, run_generation_batch
+
+    kb      = load_kpi_knowledge_base()
+    targets = body.kpi_codes if body.kpi_codes else list(kb.keys())
+    total   = len(targets) * body.questions_per_kpi
+
+    _bulk_job = {
+        "running": True,
+        "progress": 0,
+        "total": total,
+        "failed": 0,
+        "done": False,
+        "error": None,
+    }
+
+    def _run():
+        global _bulk_job
+        try:
+            from generator import (
+                load_kpi_knowledge_base, get_kpi_context,
+                generate_question, check_answer_balance, _PLAN_20
+            )
+
+            kb2 = load_kpi_knowledge_base()
+
+            def plan_for(n):
+                base = _PLAN_20 * (n // len(_PLAN_20) + 1)
+                return base[:n]
+
+            for kpi_code in targets:
+                kpi = kb2.get(kpi_code)
+                if not kpi:
+                    continue
+                for q_type, diff in plan_for(body.questions_per_kpi):
+                    balance = check_answer_balance(kpi["cluster"])
+                    force   = balance["suggest"] if not balance["balanced"] else None
+                    result  = generate_question(
+                        kpi_code=kpi_code, question_type=q_type,
+                        difficulty=diff, force_correct_answer=force, save_to_db=True
+                    )
+                    if result:
+                        _bulk_job["progress"] += 1
+                    else:
+                        _bulk_job["failed"] += 1
+
+            _bulk_job["running"] = False
+            _bulk_job["done"]    = True
+
+        except Exception as e:
+            _bulk_job["running"] = False
+            _bulk_job["error"]   = str(e)
+
+    background_tasks.add_task(_run)
+
+    return {
+        "message": f"Bulk generation started for {len(targets)} KPIs × {body.questions_per_kpi} questions = {total} total.",
+        "kpis": len(targets),
+        "questions_per_kpi": body.questions_per_kpi,
+        "total_target": total,
+    }
+
+
+@app.get("/generate/all/status")
+async def generate_all_status(user=Depends(get_current_user)):
+    """Poll this endpoint to check bulk generation progress."""
+    return {
+        "running":  _bulk_job["running"],
+        "progress": _bulk_job["progress"],
+        "total":    _bulk_job["total"],
+        "failed":   _bulk_job["failed"],
+        "done":     _bulk_job["done"],
+        "error":    _bulk_job["error"],
+        "percent":  round(_bulk_job["progress"] / _bulk_job["total"] * 100, 1)
+                    if _bulk_job["total"] else 0,
+    }
+
+
 @app.get("/balance/{cluster}")
 async def get_balance(cluster: str):
     from generator import check_answer_balance
     return check_answer_balance(cluster)
 
 
-# ─────────────────────────────────────────────
-# HEALTH CHECK
-# ─────────────────────────────────────────────
 
 @app.get("/")
 async def root():
