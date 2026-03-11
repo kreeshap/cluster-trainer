@@ -220,7 +220,11 @@ html, body { height:100%; background:var(--bg); font-family:'Barlow',sans-serif;
 .answer-btn.correct .letter-bubble { background:var(--correct);color:#fff; }
 .answer-btn.wrong   .letter-bubble { background:var(--wrong);color:#fff; }
 .answer-btn.reveal  .letter-bubble { background:var(--correct);color:#fff; }
-.answer-text { font-size:.91rem;line-height:1.45; }
+.answer-text {
+  font-size:.91rem;
+  line-height:1.45;
+  color:var(--white);
+}
 .explanation-box {
   background:var(--card);border:1px solid var(--border2);border-radius:10px;
   padding:16px 20px;margin-bottom:22px;font-size:.87rem;line-height:1.6;
