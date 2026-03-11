@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Select Quiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body style="padding-top:60px">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
+  <div class="topbar-right">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-sm" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+  <button class="back-btn" onclick="window.location.href='dashboard.html'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to Dashboard
+  </button>
+
+  <h2 class="selector-title" id="sel-title">— <span>Questions</span></h2>
+  <p class="selector-sub">Filter by difficulty and type, then hit start</p>
+
+  <p class="section-title">Difficulty</p>
+  <div class="filter-row" id="diff-filters">
+    <button class="filter-chip active" data-diff="all">All</button>
+    <button class="filter-chip" data-diff="easy">Easy</button>
+    <button class="filter-chip" data-diff="medium">Medium</button>
+    <button class="filter-chip" data-diff="hard">Hard</button>
+  </div>
+
+  <p class="section-title" style="margin-top:22px">Question Type</p>
+  <div class="filter-row" id="type-filters">
+    <button class="filter-chip active" data-type="all">All Types</button>
+    <button class="filter-chip" data-type="scenario">Scenario</button>
+    <button class="filter-chip" data-type="calculation">Calculation</button>
+    <button class="filter-chip" data-type="definition">Definition</button>
+    <button class="filter-chip" data-type="application">Application</button>
+  </div>
+
+  <div class="start-bar">
+    <select id="sel-count">
+      <option value="5">5 questions</option>
+      <option value="10" selected>10 questions</option>
+      <option value="20">20 questions</option>
+      <option value="all">All available</option>
+    </select>
+    <button class="btn-start" id="btn-start-quiz">Start Quiz →</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<script>
+let selDiff = 'all', selType = 'all';
+
+(async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  initTopbar(user);
+
+  const cluster = Store.get('cluster');
+  if (!cluster) { window.location.href = 'dashboard.html'; return; }
+  document.getElementById('sel-title').innerHTML = `${cluster} <span>Questions</span>`;
+
+  // Apply default difficulty from settings if set
+  const defDiff = user.user_metadata?.default_difficulty;
+  if (defDiff && defDiff !== 'all') {
+    selDiff = defDiff;
+    document.querySelectorAll('#diff-filters .filter-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.diff === defDiff);
+    });
+  }
+})();
+
+// Filter chips
+document.querySelectorAll('#diff-filters .filter-chip').forEach(btn => {
+  btn.onclick = () => {
+    selDiff = btn.dataset.diff;
+    document.querySelectorAll('#diff-filters .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+document.querySelectorAll('#type-filters .filter-chip').forEach(btn => {
+  btn.onclick = () => {
+    selType = btn.dataset.type;
+    document.querySelectorAll('#type-filters .filter-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+document.getElementById('btn-start-quiz').onclick = async () => {
+  showLoading('Loading questions…');
+  const cluster = Store.get('cluster');
+  let q = sb.from('questions').select('*').eq('cluster', cluster);
+  if (selDiff !== 'all') q = q.eq('difficulty', selDiff);
+  if (selType !== 'all') q = q.eq('question_type', selType);
+  const { data } = await q;
+  let qs = (data || []).sort(() => Math.random() - .5);
+  hideLoading();
+  if (!qs.length) { alert('No questions match those filters. Try different options.'); return; }
+  const n = document.getElementById('sel-count').value;
+  if (n !== 'all') qs = qs.slice(0, parseInt(n));
+  Store.set('quiz_questions', qs);
+  Store.set('quiz_cluster', cluster);
+  window.location.href = 'quiz.html';
+};
+</script>
+</body>
+</html>

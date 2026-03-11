@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══ SIGN IN ══ -->
+<div id="page-signin">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Welcome back</h1>
+      <p class="auth-sub">Sign in to your account</p>
+      <div class="err-box" id="si-err"></div>
+      <div class="field"><input type="email"    id="si-email" placeholder="email@email.com" autocomplete="email"/></div>
+      <div class="field"><input type="password" id="si-pass"  placeholder="Password" autocomplete="current-password"/></div>
+      <button class="btn-primary" id="btn-signin">Sign In</button>
+      <div class="auth-links stack">
+        <span><a id="go-forgot">Forgot your password?</a></span>
+        <span>Don't have an account? <a id="go-signup">Sign up!</a></span>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block"><span class="brand-cluster">CLUSTER</span><span class="brand-trainer">TRAINER</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SIGN UP ══ -->
+<div id="page-signup" class="hidden">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Get started!</h1>
+      <p class="auth-sub">Create your account</p>
+      <div class="err-box" id="su-err"></div>
+      <div class="field"><input type="email"    id="su-email" placeholder="email@email.com" autocomplete="email"/></div>
+      <div class="field"><input type="password" id="su-pass"  placeholder="Password (6+ characters)" autocomplete="new-password"/></div>
+      <button class="btn-primary" id="btn-signup">Sign Up</button>
+      <div class="auth-links">Already have an account? <a id="go-signin">Sign in!</a></div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block"><span class="brand-cluster">CLUSTER</span><span class="brand-trainer">TRAINER</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FORGOT ══ -->
+<div id="page-forgot" class="hidden">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Reset Password</h1>
+      <p class="auth-sub">We'll send a reset link to your inbox</p>
+      <div class="err-box" id="fp-err"></div>
+      <div class="ok-box"  id="fp-ok"></div>
+      <div class="field"><input type="email" id="fp-email" placeholder="email@email.com"/></div>
+      <button class="btn-primary" id="btn-forgot">Send Reset Link</button>
+      <div class="auth-links"><a id="go-signin2">← Back to Sign In</a></div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block"><span class="brand-cluster">CLUSTER</span><span class="brand-trainer">TRAINER</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<script>
+const PAGES = ['signin','signup','forgot'];
+function show(name) { PAGES.forEach(p => document.getElementById('page-'+p).classList.toggle('hidden', p!==name)); }
+function errMsg(id,msg){ const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); }
+function clrMsg(id)    { const e=document.getElementById(id); e.textContent=''; e.classList.remove('show'); }
+function setBtn(id,busy,lbl){ const b=document.getElementById(id); b.disabled=busy; b.textContent=busy?'Please wait…':lbl; }
+
+document.getElementById('btn-signin').onclick = async () => {
+  clrMsg('si-err');
+  const email=document.getElementById('si-email').value.trim(), pass=document.getElementById('si-pass').value;
+  if(!email||!pass) return errMsg('si-err','Please fill in all fields.');
+  setBtn('btn-signin',true,'Sign In');
+  const {error} = await sb.auth.signInWithPassword({email,password:pass});
+  setBtn('btn-signin',false,'Sign In');
+  if(error) return errMsg('si-err',error.message);
+  window.location.href='dashboard.html';
+};
+document.getElementById('si-pass').onkeydown = e => { if(e.key==='Enter') document.getElementById('btn-signin').click(); };
+
+document.getElementById('btn-signup').onclick = async () => {
+  clrMsg('su-err');
+  const email=document.getElementById('su-email').value.trim(), pass=document.getElementById('su-pass').value;
+  if(!email||!pass) return errMsg('su-err','Please fill in all fields.');
+  if(pass.length<6) return errMsg('su-err','Password must be at least 6 characters.');
+  setBtn('btn-signup',true,'Sign Up');
+  const {data,error} = await sb.auth.signUp({email,password:pass});
+  setBtn('btn-signup',false,'Sign Up');
+  if(error) return errMsg('su-err',error.message);
+  if(data.session){ window.location.href='dashboard.html'; }
+  else {
+    const e=document.getElementById('su-err');
+    e.textContent='✓ Check your email to confirm your account.';
+    e.style.cssText='display:block;color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)';
+  }
+};
+
+document.getElementById('btn-forgot').onclick = async () => {
+  clrMsg('fp-err'); clrMsg('fp-ok');
+  const email=document.getElementById('fp-email').value.trim();
+  if(!email) return errMsg('fp-err','Please enter your email.');
+  setBtn('btn-forgot',true,'Send Reset Link');
+  const {error} = await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/index.html'});
+  setBtn('btn-forgot',false,'Send Reset Link');
+  if(error) return errMsg('fp-err',error.message);
+  const ok=document.getElementById('fp-ok'); ok.textContent='✓ Reset link sent — check your inbox.'; ok.classList.add('show');
+};
+
+document.getElementById('go-signup').onclick  = ()=>show('signup');
+document.getElementById('go-signin').onclick  = ()=>show('signin');
+document.getElementById('go-forgot').onclick  = ()=>show('forgot');
+document.getElementById('go-signin2').onclick = ()=>show('signin');
+
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session) window.location.href='dashboard.html';
+})();
+</script>
+</body>
+</html>

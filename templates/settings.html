@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body style="padding-top:60px">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
+  <div class="topbar-right">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-sm" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="settings-wrap">
+  <button class="back-btn" onclick="window.location.href='dashboard.html'">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to Dashboard
+  </button>
+
+  <h2 class="settings-title">Account <span>Settings</span></h2>
+  <p class="settings-sub">Customize your Cluster Trainer experience</p>
+
+  <!-- PROFILE -->
+  <div class="settings-section">
+    <p class="section-title">Profile</p>
+    <div class="settings-card">
+      <div class="field">
+        <label>Display Name</label>
+        <input type="text" id="inp-name" placeholder="e.g. Alex" maxlength="32" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>Favorite Cluster <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(shown first on dashboard)</span></label>
+        <select id="inp-cluster">
+          <option value="">— None —</option>
+          <!-- Populated from DB -->
+        </select>
+      </div>
+      <div class="field">
+        <label>Default Difficulty <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(pre-selected on quiz selector)</span></label>
+        <select id="inp-diff">
+          <option value="all">All (no preference)</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+
+      <div class="ok-box"  id="profile-ok"></div>
+      <div class="err-box" id="profile-err"></div>
+      <button class="settings-save" id="btn-save-profile">Save Changes</button>
+    </div>
+  </div>
+
+  <!-- ACCOUNT -->
+  <div class="settings-section">
+    <p class="section-title">Account</p>
+    <div class="settings-card">
+      <div class="account-info">
+        <span class="a-label">Email</span>
+        <span class="a-val" id="acct-email">—</span>
+      </div>
+      <div class="account-info">
+        <span class="a-label">User ID</span>
+        <span class="a-val" id="acct-id" style="font-size:.78rem;color:var(--muted);font-family:monospace">—</span>
+      </div>
+      <div class="account-info" style="padding-top:16px;border-bottom:none">
+        <span class="a-label">Password</span>
+        <button class="btn-sm" id="btn-reset-pw">Send Reset Email</button>
+      </div>
+      <div class="ok-box" id="pw-ok" style="margin-top:12px;margin-bottom:0"></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="settings-section">
+    <p class="section-title">Your Stats</p>
+    <div class="settings-card">
+      <div class="account-info">
+        <span class="a-label">Total Attempts</span>
+        <span class="a-val" id="stat-attempts">—</span>
+      </div>
+      <div class="account-info">
+        <span class="a-label">Overall Accuracy</span>
+        <span class="a-val" id="stat-accuracy">—</span>
+      </div>
+      <div class="account-info">
+        <span class="a-label">Best Cluster</span>
+        <span class="a-val" id="stat-best">—</span>
+      </div>
+      <div class="account-info">
+        <span class="a-label">Needs Work</span>
+        <span class="a-val" id="stat-worst" style="color:var(--wrong)">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="settings-section">
+    <p class="section-title">Danger Zone</p>
+    <div class="danger-zone">
+      <p>Permanently clear your entire quiz history. Your account will not be deleted.</p>
+      <button class="btn-danger" id="btn-clear-history">Clear Quiz History</button>
+      <div class="ok-box" id="danger-ok" style="margin-top:12px;margin-bottom:0"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<script>
+let currentUser;
+
+function showMsg(id, msg, isErr) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+(async () => {
+  currentUser = await requireAuth();
+  if (!currentUser) return;
+  initTopbar(currentUser);
+
+  const meta = currentUser.user_metadata || {};
+
+  // Fill profile fields
+  document.getElementById('inp-name').value = meta.display_name || '';
+  document.getElementById('acct-email').textContent = currentUser.email;
+  document.getElementById('acct-id').textContent    = currentUser.id;
+
+  // Set difficulty default
+  const diff = meta.default_difficulty || 'all';
+  document.getElementById('inp-diff').value = diff;
+
+  // Load clusters from DB
+  const { data: qs } = await sb.from('questions').select('cluster');
+  const clusters = [...new Set((qs || []).map(q => q.cluster))].sort();
+  const sel = document.getElementById('inp-cluster');
+  clusters.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    if (c === meta.favorite_cluster) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Load stats
+  const { data: hist } = await sb.from('quiz_history')
+    .select('is_correct,cluster').eq('user_id', currentUser.id);
+
+  if (hist && hist.length) {
+    const total   = hist.length;
+    const correct = hist.filter(r => r.is_correct).length;
+    document.getElementById('stat-attempts').textContent  = total;
+    document.getElementById('stat-accuracy').textContent  = Math.round(correct / total * 100) + '%';
+
+    // Per-cluster accuracy
+    const byCluster = {};
+    hist.forEach(r => {
+      if (!byCluster[r.cluster]) byCluster[r.cluster] = { c: 0, t: 0 };
+      byCluster[r.cluster].t++;
+      if (r.is_correct) byCluster[r.cluster].c++;
+    });
+    const ranked = Object.entries(byCluster)
+      .filter(([, v]) => v.t >= 3)  // at least 3 attempts
+      .map(([k, v]) => ({ name: k, pct: Math.round(v.c / v.t * 100) }))
+      .sort((a, b) => b.pct - a.pct);
+
+    if (ranked.length) {
+      document.getElementById('stat-best').textContent  = `${ranked[0].name} (${ranked[0].pct}%)`;
+      document.getElementById('stat-worst').textContent = `${ranked[ranked.length - 1].name} (${ranked[ranked.length - 1].pct}%)`;
+    }
+  }
+})();
+
+// Save profile
+document.getElementById('btn-save-profile').onclick = async () => {
+  const btn  = document.getElementById('btn-save-profile');
+  const name = document.getElementById('inp-name').value.trim();
+  const clus = document.getElementById('inp-cluster').value;
+  const diff = document.getElementById('inp-diff').value;
+
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const { error } = await sb.auth.updateUser({
+    data: {
+      display_name:       name || null,
+      favorite_cluster:   clus || null,
+      default_difficulty: diff,
+    }
+  });
+
+  btn.disabled = false; btn.textContent = 'Save Changes';
+
+  if (error) { showMsg('profile-err', error.message, true); return; }
+
+  // Update topbar name live
+  document.getElementById('topbar-name').textContent = name || currentUser.email.split('@')[0];
+  showMsg('profile-ok', '✓ Settings saved!', false);
+};
+
+// Reset password
+document.getElementById('btn-reset-pw').onclick = async () => {
+  const { error } = await sb.auth.resetPasswordForEmail(currentUser.email, {
+    redirectTo: location.origin + '/index.html'
+  });
+  if (error) { alert(error.message); return; }
+  showMsg('pw-ok', '✓ Reset link sent to your email.', false);
+};
+
+// Clear history
+document.getElementById('btn-clear-history').onclick = async () => {
+  if (!confirm('Are you sure? This will permanently delete all your quiz history.')) return;
+  const { error } = await sb.from('quiz_history').delete().eq('user_id', currentUser.id);
+  if (error) { alert(error.message); return; }
+  showMsg('danger-ok', '✓ Quiz history cleared.', false);
+  // Reset stats display
+  ['stat-attempts','stat-accuracy','stat-best','stat-worst'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+};
+</script>
+</body>
+</html>

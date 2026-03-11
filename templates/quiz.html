@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Quiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body style="padding-top:60px">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
+  <div class="topbar-right">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-sm" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="quiz-wrap">
+  <div class="quiz-meta">
+    <div class="q-badge" id="q-badge">Q 1/10</div>
+    <div class="quiz-progress-wrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="prog-label">0 of 10 completed</div>
+    </div>
+    <div class="diff-badge medium" id="diff-badge">medium</div>
+  </div>
+
+  <div class="scenario-box hidden" id="scenario-box">
+    <div class="scenario-label">Scenario</div>
+    <div id="scenario-text"></div>
+  </div>
+
+  <div class="question-text" id="question-text"></div>
+  <div class="answers-grid"  id="answers-grid"></div>
+
+  <div class="explanation-box" id="expl-box">
+    <div class="exp-label">Explanation</div>
+    <div id="expl-text"></div>
+  </div>
+
+  <div class="quiz-actions">
+    <button class="btn-action secondary" id="btn-quit">Quit</button>
+    <button class="btn-action primary hidden" id="btn-next">Next Question →</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="common.js"></script>
+<script>
+let user, quizQs = [], quizIdx = 0, quizScore = 0, answered = false;
+
+(async () => {
+  user = await requireAuth();
+  if (!user) return;
+  initTopbar(user);
+
+  quizQs = Store.get('quiz_questions');
+  if (!quizQs || !quizQs.length) { window.location.href = 'selector.html'; return; }
+
+  renderQ();
+})();
+
+function renderQ() {
+  answered = false;
+  const q = quizQs[quizIdx], tot = quizQs.length;
+  const pct = Math.round(quizIdx / tot * 100);
+
+  document.getElementById('q-badge').textContent       = `Q ${quizIdx + 1} / ${tot}`;
+  document.getElementById('prog-fill').style.width     = pct + '%';
+  document.getElementById('prog-label').textContent    = `${quizIdx} of ${tot} completed`;
+  const db = document.getElementById('diff-badge');
+  db.textContent = q.difficulty || 'medium';
+  db.className   = `diff-badge ${q.difficulty || 'medium'}`;
+
+  const scBox = document.getElementById('scenario-box');
+  if (q.scenario) { document.getElementById('scenario-text').textContent = q.scenario; scBox.classList.remove('hidden'); }
+  else scBox.classList.add('hidden');
+
+  document.getElementById('question-text').textContent = q.question;
+
+  const grid = document.getElementById('answers-grid');
+  grid.innerHTML = '';
+  [['A', q.answer_a], ['B', q.answer_b], ['C', q.answer_c], ['D', q.answer_d]].forEach(([letter, text]) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.innerHTML = `<div class="letter-bubble">${letter}</div><div class="answer-text">${text}</div>`;
+    btn.onclick = () => pick(letter, q.correct, q);
+    grid.appendChild(btn);
+  });
+
+  document.getElementById('expl-box').classList.remove('show');
+  document.getElementById('btn-next').classList.add('hidden');
+}
+
+async function pick(chosen, correct, q) {
+  if (answered) return;
+  answered = true;
+
+  const btns    = document.querySelectorAll('.answer-btn');
+  const letters = ['A', 'B', 'C', 'D'];
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if (letters[i] === chosen && letters[i] === correct) btn.classList.add('correct');
+    else if (letters[i] === chosen)  btn.classList.add('wrong');
+    else if (letters[i] === correct) btn.classList.add('reveal');
+  });
+
+  if (chosen === correct) quizScore++;
+
+  if (q.explanation) {
+    document.getElementById('expl-text').textContent = q.explanation;
+    document.getElementById('expl-box').classList.add('show');
+  }
+  document.getElementById('btn-next').classList.remove('hidden');
+
+  try {
+    await sb.from('quiz_history').insert({
+      user_id: user.id, question_id: q.id, kpi_code: q.kpi_code,
+      cluster: q.cluster, selected_answer: chosen, is_correct: chosen === correct
+    });
+  } catch (e) { console.warn('History save failed:', e); }
+}
+
+document.getElementById('btn-next').onclick = () => {
+  quizIdx++;
+  if (quizIdx >= quizQs.length) {
+    Store.set('quiz_result', { score: quizScore, total: quizIdx, cluster: Store.get('quiz_cluster') });
+    window.location.href = 'results.html';
+  } else {
+    renderQ();
+  }
+};
+
+document.getElementById('btn-quit').onclick = () => {
+  if (quizIdx > 0) {
+    Store.set('quiz_result', { score: quizScore, total: quizIdx, cluster: Store.get('quiz_cluster') });
+    window.location.href = 'results.html';
+  } else {
+    window.location.href = 'selector.html';
+  }
+};
+</script>
+</body>
+</html>
