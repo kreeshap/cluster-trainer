@@ -7,28 +7,32 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ── AUTH GUARD ───────────────────────────────────────────
 async function requireAuth() {
     const { data: { session }, error } = await sb.auth.getSession();
-    
-    // Updated path logic for Flask routing
+
     const path = window.location.pathname;
-    const isLoginPage = path === '/' || 
-                       path.endsWith('index') || 
-                       path.endsWith('index.html') || 
-                       path === '/app/';
+    const isLoginPage = path === '/' ||
+                        path === '/app/' ||
+                        path.endsWith('index.html') ||
+                        path.endsWith('index');
 
     if (!session && !isLoginPage) {
         console.log("No session found, redirecting to login...");
-        // Use relative path or explicit /app/ to stay in the Flask route
-        window.location.href = '/app/index'; 
+        window.location.href = '/app/index.html';
         return null;
     }
 
     if (session && isLoginPage) {
         console.log("Session found, redirecting to dashboard...");
-        window.location.href = '/app/dashboard';
+        window.location.href = '/app/dashboard.html';
         return null;
     }
 
     return session ? session.user : null;
+}
+
+// ── DISPLAY NAME ─────────────────────────────────────────
+function getDisplayName(user) {
+    if (!user) return '';
+    return user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
 }
 
 // ── TOPBAR INITIALIZATION ────────────────────────────────
@@ -38,19 +42,18 @@ function initTopbar(user) {
     const nameEl = document.getElementById('topbar-name');
     if (nameEl) nameEl.textContent = getDisplayName(user);
 
-    // FIXED: Navigation now uses /app/ prefix
     const brand = document.querySelector('.topbar-brand');
-    if (brand) brand.onclick = () => window.location.href = '/app/dashboard';
+    if (brand) brand.onclick = () => window.location.href = '/app/dashboard.html';
 
     const btnSettings = document.getElementById('btn-settings');
-    if (btnSettings) btnSettings.onclick = () => window.location.href = '/app/settings';
+    if (btnSettings) btnSettings.onclick = () => window.location.href = '/app/settings.html';
 
     const btnLogout = document.getElementById('btn-logout');
     if (btnLogout) {
         btnLogout.onclick = async () => {
             showLoading('Logging out...');
             await sb.auth.signOut();
-            window.location.href = '/app/index';
+            window.location.href = '/app/index.html';
         };
     }
 }
@@ -61,7 +64,7 @@ function showLoading(msg = 'Loading...') {
     if (!el) {
         el = document.createElement('div');
         el.id = 'loading-overlay';
-        el.className = 'loading-overlay'; // Ensure this CSS exists
+        el.className = 'loading-overlay';
         el.innerHTML = `
             <div class="spinner-container">
                 <div class="spinner"></div>
@@ -82,11 +85,11 @@ function hideLoading() {
 // ── STORAGE HELPERS ──────────────────────────────────────
 const Store = {
     set: (key, val) => sessionStorage.setItem('ct_' + key, JSON.stringify(val)),
-    get: (key) => { 
-        try { 
+    get: (key) => {
+        try {
             const item = sessionStorage.getItem('ct_' + key);
-            return item ? JSON.parse(item) : null; 
-        } catch { return null; } 
+            return item ? JSON.parse(item) : null;
+        } catch { return null; }
     },
     del: (key) => sessionStorage.removeItem('ct_' + key),
 };

@@ -7,6 +7,7 @@ import os
 import json
 import random
 import re
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 from groq import Groq
@@ -31,111 +32,112 @@ KB_PATH   = BASE_DIR / "kpi_knowledge_base.json"
 # ════════════════════════════════════════════════════════════════
 
 def load_kpi_knowledge_base() -> dict:
-    """Load the full KPI knowledge base from JSON.
-    Supports both flat {"kpis": [...]} and clustered {"clusters": {...}} formats.
-    """
+    """Supports both flat {"kpis": [...]} and clustered {"clusters": {...}} formats."""
     with open(KB_PATH, "r") as f:
         data = json.load(f)
 
     kpis = []
-
     if "kpis" in data:
-        # Flat format: {"kpis": [{kpi_code, kpi_name, cluster, ...}, ...]}
         kpis = data["kpis"]
-
     elif "clusters" in data:
-        # Clustered format: {"clusters": {"ClusterName": [{kpi_code, kpi_name, ...}, ...]}}
         for cluster_name, cluster_kpis in data["clusters"].items():
             for kpi in cluster_kpis:
                 kpi_copy = dict(kpi)
-                # Ensure cluster field is set from the key
                 kpi_copy["cluster"] = cluster_name
                 kpis.append(kpi_copy)
-
     else:
         raise KeyError("kpi_knowledge_base.json must have either a 'kpis' or 'clusters' top-level key")
 
-    # Index by kpi_code for fast lookup
     return {kpi["kpi_code"]: kpi for kpi in kpis}
 
 
 def get_kpi_context(kpi_code: str) -> dict | None:
-    """Return the knowledge base entry for one KPI."""
     kb = load_kpi_knowledge_base()
     return kb.get(kpi_code)
 
 
+# ════════════════════════════════════════════════════════════════
+#  STEP 2 — CHECK EXISTING QUESTIONS (skip completed KPIs)
+# ════════════════════════════════════════════════════════════════
+
+def get_existing_counts(kpi_codes: list[str]) -> dict[str, int]:
+    """Returns {kpi_code: count} of already-generated questions in the DB."""
+    if not kpi_codes:
+        return {}
+    try:
+        response = (
+            supabase.table("questions")
+            .select("kpi_code")
+            .in_("kpi_code", kpi_codes)
+            .eq("source", "generated")
+            .execute()
+        )
+        counts: dict[str, int] = {}
+        for row in (response.data or []):
+            code = row["kpi_code"]
+            counts[code] = counts.get(code, 0) + 1
+        return counts
+    except Exception as e:
+        print(f"⚠ Could not fetch existing counts: {e}")
+        return {}
+
 
 def get_style_examples(cluster: str, question_type: str, n: int = 5) -> list[dict]:
-    
-    response = (
-        supabase.table("questions")
-        .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
-        .eq("cluster", cluster)
-        .eq("question_type", question_type)
-        .eq("source", "parsed")
-        .limit(20)
-        .execute()
-    )
-
-    examples = response.data or []
-
-    # fallback: any parsed question from any cluster
-    if len(examples) < 3:
-        fallback = (
+    try:
+        response = (
             supabase.table("questions")
             .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
+            .eq("cluster", cluster)
+            .eq("question_type", question_type)
             .eq("source", "parsed")
             .limit(20)
             .execute()
         )
-        examples = (fallback.data or []) + examples
-
-    # pick n random examples
-    return random.sample(examples, min(n, len(examples)))
+        examples = response.data or []
+        if len(examples) < 3:
+            fallback = (
+                supabase.table("questions")
+                .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
+                .eq("source", "parsed")
+                .limit(20)
+                .execute()
+            )
+            examples = (fallback.data or []) + examples
+        return random.sample(examples, min(n, len(examples)))
+    except Exception:
+        return []
 
 
 def check_answer_balance(cluster: str) -> dict:
-    """
-    Check if correct answers are evenly distributed across A/B/C/D.
-    Returns the underrepresented letter(s) if any letter exceeds 30%.
-    """
-    response = (
-        supabase.table("questions")
-        .select("correct")
-        .eq("cluster", cluster)
-        .execute()
-    )
+    try:
+        response = (
+            supabase.table("questions")
+            .select("correct")
+            .eq("cluster", cluster)
+            .execute()
+        )
+        counts = {"A": 0, "B": 0, "C": 0, "D": 0}
+        for row in (response.data or []):
+            letter = row["correct"].upper()
+            if letter in counts:
+                counts[letter] += 1
+        total = sum(counts.values())
+        if total == 0:
+            return {"balanced": True, "counts": counts, "suggest": None}
+        overrepresented  = [k for k, v in counts.items() if v / total > 0.30]
+        underrepresented = [k for k, v in counts.items() if v / total < 0.20]
+        return {
+            "balanced": len(overrepresented) == 0,
+            "counts": counts,
+            "percentages": {k: round(v / total * 100, 1) for k, v in counts.items()},
+            "overrepresented": overrepresented,
+            "suggest": underrepresented[0] if underrepresented else None
+        }
+    except Exception:
+        return {"balanced": True, "counts": {}, "suggest": None}
 
-    counts = {"A": 0, "B": 0, "C": 0, "D": 0}
-    for row in (response.data or []):
-        letter = row["correct"].upper()
-        if letter in counts:
-            counts[letter] += 1
 
-    total = sum(counts.values())
-    if total == 0:
-        return {"balanced": True, "counts": counts, "suggest": None}
-
-    overrepresented  = [k for k, v in counts.items() if v / total > 0.30]
-    underrepresented = [k for k, v in counts.items() if v / total < 0.20]
-
-    return {
-        "balanced": len(overrepresented) == 0,
-        "counts": counts,
-        "percentages": {k: round(v / total * 100, 1) for k, v in counts.items()},
-        "overrepresented": overrepresented,
-        "suggest": underrepresented[0] if underrepresented else None
-    }
-
-def build_prompt(
-    kpi: dict,
-    question_type: str,
-    difficulty: str,
-    style_examples: list[dict],
-    force_correct_answer: str | None = None
-) -> str:
-
+def build_prompt(kpi, question_type, difficulty, style_examples, force_correct_answer=None):
     examples_text = ""
     for i, ex in enumerate(style_examples, 1):
         examples_text += f"""
@@ -154,19 +156,16 @@ Explanation: {ex.get('explanation', '')}
     if force_correct_answer:
         force_instruction = f"\nIMPORTANT: The correct answer MUST be option {force_correct_answer}. Design the question and answers so that {force_correct_answer} is the best answer.\n"
 
-    # Support both rich KBs (with extra fields) and simple KBs (kpi_code + kpi_name only)
-    kpi_name    = kpi.get("kpi_name", "")
-    kpi_code    = kpi.get("kpi_code", "")
-    cluster     = kpi.get("cluster", kpi.get("instructional_area", ""))
-    definition  = kpi.get("definition", f"Understand and apply: {kpi_name}")
-    formula     = kpi.get("formula", "N/A")
-    real_world  = kpi.get("real_world_context", f"This KPI applies to real-world business scenarios in {cluster}.")
+    kpi_name       = kpi.get("kpi_name", "")
+    kpi_code       = kpi.get("kpi_code", "")
+    cluster        = kpi.get("cluster", kpi.get("instructional_area", ""))
+    definition     = kpi.get("definition", f"Understand and apply: {kpi_name}")
+    formula        = kpi.get("formula", "N/A")
+    real_world     = kpi.get("real_world_context", f"This KPI applies to real-world business scenarios in {cluster}.")
     misconceptions = kpi.get("common_misconceptions", "Students often confuse related concepts or misapply terminology.")
+    angle          = kpi.get(f"{difficulty}_angle", f"A {difficulty}-level question about {kpi_name}")
 
-    angle_key = f"{difficulty}_angle"
-    angle = kpi.get(angle_key, f"A {difficulty}-level question about {kpi_name}")
-
-    prompt = f"""You are an expert DECA exam question writer. Your job is to write high-quality, realistic DECA-style multiple choice questions.
+    return f"""You are an expert DECA exam question writer. Your job is to write high-quality, realistic DECA-style multiple choice questions.
 
 ══ KPI KNOWLEDGE (use this as your content source) ══
 KPI Code: {kpi_code}
@@ -213,7 +212,36 @@ Return ONLY valid JSON in this exact format — no markdown, no extra text:
   "source": "generated"
 }}"""
 
-    return prompt
+
+def call_groq_with_retry(prompt: str, max_retries: int = 8) -> str | None:
+    """Call Groq API with automatic retry on rate limit (429)."""
+    for attempt in range(max_retries):
+        try:
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.8
+            )
+            return response.choices[0].message.content.strip()
+
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "rate_limit_exceeded" in err:
+                # Parse wait time from error message
+                wait = 135  # safe default
+                match = re.search(r'try again in (\d+)m([\d.]+)s', err)
+                if match:
+                    wait = int(match.group(1)) * 60 + float(match.group(2)) + 5
+                print(f"\n  ⏳ Rate limit — waiting {int(wait)}s "
+                      f"(attempt {attempt + 1}/{max_retries})...", flush=True)
+                time.sleep(wait)
+            else:
+                print(f"  ✗ Groq API error: {e}")
+                return None
+
+    print(f"  ✗ Max retries exceeded")
+    return None
+
 
 def generate_question(
     kpi_code: str,
@@ -222,48 +250,41 @@ def generate_question(
     force_correct_answer: str | None = None,
     save_to_db: bool = True
 ) -> dict | None:
-    
-    # 1. Load KPI context
+
     kpi = get_kpi_context(kpi_code)
     if not kpi:
         print(f"  ✗ KPI not found: {kpi_code}")
         return None
 
-    # 2. Get style examples
-    examples = get_style_examples(kpi.get("cluster", kpi.get("instructional_area", "")), question_type)
+    cluster  = kpi.get("cluster", kpi.get("instructional_area", ""))
+    examples = get_style_examples(cluster, question_type)
+    prompt   = build_prompt(kpi, question_type, difficulty, examples, force_correct_answer)
 
-    # 3. Build prompt
-    prompt = build_prompt(kpi, question_type, difficulty, examples, force_correct_answer)
-
-    # 4. Call Groq
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.8
-        )
-        raw = response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"  ✗ Groq API error: {e}")
+    raw = call_groq_with_retry(prompt)
+    if raw is None:
         return None
 
-    # 5. Parse JSON response
     try:
-        clean = re.sub(r"```(?:json)?|```", "", raw).strip()
+        clean    = re.sub(r"```(?:json)?|```", "", raw).strip()
         question = json.loads(clean)
     except json.JSONDecodeError as e:
         print(f"  ✗ JSON parse error: {e}")
-        print(f"  Raw response: {raw[:200]}")
+        print(f"  Raw: {raw[:200]}")
         return None
 
-    # 6. Validate required fields
     required = ["question", "answer_a", "answer_b", "answer_c", "answer_d", "correct"]
     for field in required:
         if field not in question:
             print(f"  ✗ Missing field: {field}")
             return None
 
-    # 7. Save to database
+    # Sanitize correct field — must be a single A/B/C/D
+    correct = question["correct"].strip().upper()
+    question["correct"] = correct[0] if correct else "A"
+    if question["correct"] not in ("A", "B", "C", "D"):
+        print(f"  ✗ Invalid correct answer: {question['correct']}")
+        return None
+
     if save_to_db:
         try:
             result = supabase.table("questions").insert(question).execute()
@@ -274,9 +295,8 @@ def generate_question(
 
     return question
 
-# 20-slot plan: 5 types × 4 difficulties, each type gets exactly 5 questions
+
 _PLAN_20: list[tuple[str, str]] = [
-    # (question_type, difficulty)
     ("definition",   "easy"),
     ("definition",   "medium"),
     ("definition",   "hard"),
@@ -305,52 +325,60 @@ def run_generation_batch(
     questions_per_kpi: int = 20,
     check_balance_every: int = 50,
 ):
-    """
-    Generate questions for all (or specified) KPIs.
-
-    Args:
-        kpi_codes:           Specific KPI codes to target. None = all KPIs.
-        questions_per_kpi:   How many questions per KPI (default 20).
-        check_balance_every: Print balance report after every N questions.
-    """
-    kb = load_kpi_knowledge_base()
+    kb      = load_kpi_knowledge_base()
     targets = kpi_codes if kpi_codes else list(kb.keys())
 
-    # Build per-kpi plan — cycle through _PLAN_20 if questions_per_kpi != 20
+    # ── CHECK WHICH KPIs ARE ALREADY DONE ──────────────────────
+    print("\n  Checking existing question counts in DB...", flush=True)
+    existing = get_existing_counts(targets)
+
+    done_kpis    = [k for k in targets if existing.get(k, 0) >= questions_per_kpi]
+    pending_kpis = [k for k in targets if existing.get(k, 0) < questions_per_kpi]
+
+    print(f"  ✓ Already complete : {len(done_kpis)} KPIs  (skipping)")
+    print(f"  → Needs generation : {len(pending_kpis)} KPIs")
+
     def plan_for(n: int) -> list[tuple[str, str]]:
         base = _PLAN_20 * (n // len(_PLAN_20) + 1)
         return base[:n]
 
-    total_target    = len(targets) * questions_per_kpi
+    total_target    = sum(questions_per_kpi - existing.get(k, 0) for k in pending_kpis)
     total_generated = 0
     total_failed    = 0
     clusters_seen: set[str] = set()
 
     print(f"\n{'='*60}")
     print(f"  Cluster Trainer — Bulk Question Generation")
-    print(f"  KPIs: {len(targets)}  |  Per KPI: {questions_per_kpi}  |  Total target: {total_target}")
+    print(f"  KPIs pending : {len(pending_kpis)}")
+    print(f"  Questions    : {total_target} remaining to generate")
     print(f"{'='*60}\n")
 
-    for kpi_code in targets:
+    for idx, kpi_code in enumerate(pending_kpis):
         kpi = kb.get(kpi_code)
         if not kpi:
             print(f"⚠ Skipping unknown KPI: {kpi_code}")
             continue
 
-        cluster = kpi.get("cluster", kpi.get("instructional_area", "Unknown"))
+        cluster  = kpi.get("cluster", kpi.get("instructional_area", "Unknown"))
         kpi_name = kpi.get("kpi_name", kpi_code)
+        already  = existing.get(kpi_code, 0)
+        need     = questions_per_kpi - already
 
-        print(f"\n► [{targets.index(kpi_code)+1}/{len(targets)}] {kpi_code} — {kpi_name}")
+        print(f"\n► [{idx + 1}/{len(pending_kpis)}] {kpi_code} — {kpi_name}")
+        if already > 0:
+            print(f"  (resuming: {already} already saved, generating {need} more)")
+
         clusters_seen.add(cluster)
-        plan = plan_for(questions_per_kpi)
+        # Skip the slots already covered
+        plan          = plan_for(questions_per_kpi)[already:]
         kpi_generated = 0
 
         for i, (q_type, diff) in enumerate(plan):
-            # Decide whether to force a letter for balance
-            balance = check_answer_balance(cluster)
-            force   = balance["suggest"] if not balance["balanced"] else None
+            slot_num = already + i + 1
+            balance  = check_answer_balance(cluster)
+            force    = balance["suggest"] if not balance["balanced"] else None
 
-            label = f"[{i+1:02d}/{questions_per_kpi}] {q_type:<12} {diff:<8}"
+            label = f"[{slot_num:02d}/{questions_per_kpi}] {q_type:<12} {diff:<8}"
             if force:
                 label += f" → force={force}"
             print(f"  {label}", end=" ", flush=True)
@@ -370,40 +398,35 @@ def run_generation_batch(
                 total_failed += 1
                 print("  ✗ FAILED")
 
-            # Periodic balance report
             if total_generated > 0 and total_generated % check_balance_every == 0:
-                print(f"\n  ── Balance Check @ {total_generated} questions generated ──")
+                print(f"\n  ── Balance Check @ {total_generated} questions ──")
                 for c in clusters_seen:
-                    b = check_answer_balance(c)
+                    b      = check_answer_balance(c)
                     status = "✓" if b["balanced"] else "⚠"
                     print(f"  {status} {c}: {b.get('percentages', {})}")
                 print()
 
-        print(f"  └─ KPI done: {kpi_generated}/{questions_per_kpi} saved  "
+        print(f"  └─ KPI done: {kpi_generated}/{need} new saved  "
               f"(running total: {total_generated}/{total_target})")
 
-    # Final summary
     print(f"\n{'='*60}")
     print(f"  ✓ Generation complete")
     print(f"  Generated : {total_generated}")
     print(f"  Failed    : {total_failed}")
-    print(f"  Target    : {total_target}")
+    print(f"  Skipped   : {len(done_kpis)} KPIs (already had {questions_per_kpi}+ questions)")
     print(f"{'='*60}")
 
     print("\n── Final Answer Balance Report ──")
     for cluster in sorted(clusters_seen):
-        b = check_answer_balance(cluster)
+        b      = check_answer_balance(cluster)
         status = "✓ Balanced" if b["balanced"] else "⚠ Unbalanced"
         print(f"  {cluster}: {b.get('percentages', {})}  {status}")
-
 
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1:
-        # e.g.  python generator.py FI:062 FI:064
         run_generation_batch(kpi_codes=sys.argv[1:], questions_per_kpi=20)
     else:
-        # Generate 20 questions for every KPI in the knowledge base
         run_generation_batch(questions_per_kpi=20)
