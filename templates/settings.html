@@ -210,7 +210,7 @@ document.getElementById('btn-reset-pw').onclick = async () => {
 document.getElementById('btn-clear-history').onclick = async () => {
   const { error } = await sb.from('quiz_history').delete().eq('user_id', currentUser.id);
   if (error) { alert(error.message); return; }
-  showMsg('danger-ok', '✓ Quiz history cleared.', false);
+  showMsg('danger-ok', 'Quiz history cleared.', false);
   // Reset stats display
   ['stat-attempts','stat-accuracy','stat-best','stat-worst'].forEach(id => {
     document.getElementById(id).textContent = '—';
