@@ -7,9 +7,192 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    :root {
+      --bg:        #0b1f1f;
+      --panel:     #112929;
+      --card:      #132f2f;
+      --input:     #1a3a3a;
+      --border:    #1e4040;
+      --border2:   #245050;
+      --cyan:      #00c2e0;
+      --cyan-dim:  #008fa3;
+      --cyan-glow: rgba(0,194,224,.15);
+      --white:     #f0fafa;
+      --muted:     #6a9898;
+      --correct:   #22c55e;
+      --wrong:     #ef4444;
+      --warn:      #f59e0b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); font-family: 'Barlow', sans-serif; color: var(--white); }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin   { to{transform:rotate(360deg)} }
+
+    .page-wrap { padding: 32px 40px; max-width: 1200px; margin: 0 auto; }
+
+    /* ── HEADER ROW ── */
+    .dash-header {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      margin-bottom: 28px; animation: fadeUp .4s ease both;
+    }
+    .dash-welcome { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 2rem; letter-spacing: .03em; }
+    .dash-welcome span { color: var(--cyan); }
+    .dash-sub { color: var(--muted); font-size: .88rem; margin-top: 3px; }
+    .dash-cluster-badge {
+      font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--cyan); background: var(--cyan-glow); border: 1px solid rgba(0,194,224,.3);
+      padding: 5px 14px; border-radius: 20px;
+    }
+
+    /* ── TOP ROW: READINESS + STREAK ── */
+    .top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; animation: fadeUp .4s .05s ease both; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+
+    /* Readiness */
+    .readiness-card { display: flex; align-items: center; gap: 28px; }
+    .readiness-ring { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
+    .readiness-ring svg { transform: rotate(-90deg); }
+    .ring-bg   { fill: none; stroke: var(--border); stroke-width: 9; }
+    .ring-fill { fill: none; stroke-width: 9; stroke-linecap: round; transition: stroke-dashoffset 1.2s ease; }
+    .ring-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .ring-pct  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.7rem; line-height: 1; }
+    .ring-lbl  { font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-top: 2px; }
+    .readiness-info { flex: 1; }
+    .readiness-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .readiness-factors { display: flex; flex-direction: column; gap: 6px; }
+    .r-factor { font-size: .8rem; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+    .r-factor::before { content: '·'; color: var(--cyan); font-size: 1.2rem; line-height: 1; }
+    .exam-prob { margin-top: 14px; display: flex; gap: 16px; }
+    .prob-pill {
+      font-size: .78rem; font-weight: 600; padding: 4px 12px; border-radius: 20px; letter-spacing: .04em;
+    }
+    .prob-pill.p80 { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+    .prob-pill.p90 { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+
+    /* Streak */
+    .streak-card { display: flex; flex-direction: column; justify-content: space-between; }
+    .streak-title { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+    .streak-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 3.5rem; line-height: 1; color: var(--cyan); }
+    .streak-label { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+    .streak-dots { display: flex; gap: 6px; margin-top: 14px; }
+    .streak-dot { width: 28px; height: 28px; border-radius: 50%; font-size: .65rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .streak-dot.done { background: var(--cyan); color: #051a1a; }
+    .streak-dot.miss { background: var(--border); color: var(--muted); }
+    .week-stat { margin-top: 14px; font-size: .83rem; color: var(--muted); }
+    .week-stat strong { color: var(--white); font-weight: 600; }
+
+    /* ── QUICK START ── */
+    .quick-start { margin-bottom: 16px; animation: fadeUp .4s .1s ease both; }
+    .section-label { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+    .quick-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .quick-btn {
+      background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 14px 12px; cursor: pointer; text-align: left;
+      transition: border-color .2s, transform .15s, background .2s;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .quick-btn:hover { border-color: var(--cyan); background: var(--cyan-glow); transform: translateY(-2px); }
+    .quick-btn-icon { font-size: 1.3rem; }
+    .quick-btn-label { font-size: .82rem; font-weight: 700; color: var(--white); }
+    .quick-btn-sub { font-size: .72rem; color: var(--muted); }
+
+    /* ── MIDDLE ROW: INSTRUCTIONAL AREAS + TREND ── */
+    .mid-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 16px; animation: fadeUp .4s .15s ease both; }
+
+    /* Instructional Areas */
+    .areas-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    .areas-table th { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 0 0 10px; text-align: left; }
+    .areas-table th:last-child { text-align: right; }
+    .areas-table td { padding: 9px 0; border-top: 1px solid var(--border); font-size: .88rem; vertical-align: middle; }
+    .areas-table tr { cursor: pointer; transition: background .15s; }
+    .areas-table tr:hover td { background: rgba(0,194,224,.04); }
+    .area-bar-wrap { width: 80px; background: var(--border); border-radius: 3px; height: 5px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .area-bar { height: 100%; border-radius: 3px; transition: width .6s ease; }
+    .area-pct { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .95rem; }
+    .status-pill { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
+    .status-pill.strong   { background: rgba(34,197,94,.12);  color: #4ade80; }
+    .status-pill.improving{ background: rgba(245,158,11,.12); color: #fbbf24; }
+    .status-pill.needs    { background: rgba(239,68,68,.12);  color: #f87171; }
+    .status-pill.new      { background: rgba(106,152,152,.1); color: var(--muted); }
+
+    /* Performance Trend */
+    .trend-chart { margin-top: 8px; display: flex; align-items: flex-end; gap: 8px; height: 90px; }
+    .trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+    .trend-bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: height .6s ease; }
+    .trend-score { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .85rem; color: var(--muted); }
+    .trend-score.best { color: var(--cyan); }
+    .trend-empty { color: var(--muted); font-size: .85rem; padding-top: 16px; }
+
+    /* ── BOTTOM ROW: HEATMAP + REVIEW + AI ── */
+    .bot-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; animation: fadeUp .4s .2s ease both; }
+
+    /* KPI Heatmap */
+    .heatmap-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+    .hm-row { display: flex; align-items: center; gap: 10px; }
+    .hm-name { font-size: .78rem; color: var(--muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hm-bar-bg { width: 80px; height: 6px; background: var(--border); border-radius: 3px; flex-shrink: 0; }
+    .hm-bar    { height: 100%; border-radius: 3px; }
+    .hm-pct { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .82rem; width: 32px; text-align: right; flex-shrink: 0; }
+
+    /* Review Card */
+    .review-card { display: flex; flex-direction: column; justify-content: space-between; }
+    .review-count { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 3.8rem; line-height: 1; color: var(--wrong); margin: 8px 0 4px; }
+    .review-label { font-size: .85rem; color: var(--muted); margin-bottom: 16px; }
+    .btn-review {
+      padding: 11px; background: rgba(239,68,68,.12); border: 1.5px solid rgba(239,68,68,.3);
+      border-radius: 8px; color: #f87171; font-family: 'Barlow', sans-serif; font-size: .82rem;
+      font-weight: 700; letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-review:hover { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.5); }
+
+    /* AI Focus */
+    .ai-card { position: relative; overflow: hidden; }
+    .ai-card::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(0,194,224,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .ai-tag { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); margin-bottom: 10px; }
+    .ai-focus-area { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.3rem; margin-bottom: 8px; }
+    .ai-body { font-size: .82rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+    .ai-impact { font-size: .8rem; color: #4ade80; font-weight: 600; }
+
+    /* ── SPINNER ── */
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--cyan); border-radius: 50%; animation: spin .8s linear infinite; }
+
+    /* ── SEARCH BAR ── */
+    .kpi-search-wrap { margin-top: 16px; animation: fadeUp .4s .25s ease both; }
+    .kpi-search-inner { position: relative; }
+    .kpi-search-inner input {
+      width: 100%; background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 12px 16px 12px 40px; color: var(--white); font-family: 'Barlow', sans-serif;
+      font-size: .9rem; outline: none; transition: border-color .2s;
+    }
+    .kpi-search-inner input:focus { border-color: var(--cyan); }
+    .kpi-search-inner input::placeholder { color: var(--muted); }
+    .kpi-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .kpi-result {
+      background: var(--card); border: 1px solid var(--border2); border-radius: 10px;
+      padding: 16px; margin-top: 8px; display: none;
+    }
+    .kpi-result.show { display: block; animation: fadeUp .2s ease both; }
+    .kpi-result-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 1.1rem; margin-bottom: 4px; }
+    .kpi-result-def  { font-size: .83rem; color: var(--muted); line-height: 1.55; margin-bottom: 8px; }
+    .kpi-result-tag  { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--cyan); }
+
+    @media (max-width: 900px) {
+      .top-row, .mid-row, .bot-row, .quick-btns { grid-template-columns: 1fr; }
+      .page-wrap { padding: 20px 16px; }
+    }
+  </style>
 </head>
 <body style="padding-top:60px">
 
+<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
   <div class="topbar-right">
@@ -24,23 +207,162 @@
 </div>
 
 <div class="page-wrap">
-  <p class="dash-welcome">Welcome back, <span id="dash-name"></span></p>
-  <p class="dash-sub">Choose a cluster to start practicing</p>
 
-  <div class="stat-row">
-    <div class="stat-card"><div class="label">Overall Accuracy</div><div class="value" id="stat-acc">—</div></div>
-    <div class="stat-card"><div class="label">Clusters Tried</div><div class="value" id="stat-clusters">—</div></div>
+  <!-- HEADER -->
+  <div class="dash-header">
+    <div>
+      <p class="dash-welcome">Welcome back, <span id="dash-name"></span></p>
+      <p class="dash-sub">Here's your exam readiness overview</p>
+    </div>
+    <div class="dash-cluster-badge" id="cluster-badge">Loading cluster…</div>
   </div>
 
-  <p class="section-title">Clusters</p>
-  <div class="cluster-grid" id="cluster-grid">
-    <div class="spinner" style="margin:20px auto"></div>
+  <!-- ROW 1: READINESS + STREAK -->
+  <div class="top-row">
+
+    <!-- Readiness Score -->
+    <div class="card readiness-card">
+      <div class="readiness-ring">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="ring-bg"   cx="55" cy="55" r="46"/>
+          <circle class="ring-fill" cx="55" cy="55" r="46" id="readiness-ring"
+            stroke-dasharray="289" stroke-dashoffset="289"/>
+        </svg>
+        <div class="ring-text">
+          <div class="ring-pct" id="readiness-pct">—</div>
+          <div class="ring-lbl">ready</div>
+        </div>
+      </div>
+      <div class="readiness-info">
+        <div class="readiness-title">Predicted Exam Readiness</div>
+        <div class="readiness-factors">
+          <div class="r-factor">Based on last 5 sessions</div>
+          <div class="r-factor">Difficulty weighting</div>
+          <div class="r-factor">KPI coverage breadth</div>
+        </div>
+        <div class="exam-prob">
+          <div class="prob-pill p80" id="prob-80">Score 80+: —%</div>
+          <div class="prob-pill p90" id="prob-90">Score 90+: —%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Streak -->
+    <div class="card streak-card">
+      <div class="streak-title">Consistency Tracker</div>
+      <div>
+        <div class="streak-num" id="streak-num">0</div>
+        <div class="streak-label">day streak 🔥</div>
+      </div>
+      <div class="streak-dots" id="streak-dots"></div>
+      <div class="week-stat">Questions this week: <strong id="week-count">0</strong></div>
+    </div>
+
   </div>
-</div>
+
+  <!-- ROW 2: QUICK START -->
+  <div class="quick-start">
+    <div class="section-label">Quick Start</div>
+    <div class="quick-btns">
+      <button class="quick-btn" id="qb-continue">
+        <div class="quick-btn-icon">▶</div>
+        <div class="quick-btn-label">Continue</div>
+        <div class="quick-btn-sub">Resume last cluster</div>
+      </button>
+      <button class="quick-btn" id="qb-exam">
+        <div class="quick-btn-icon">⏱</div>
+        <div class="quick-btn-label">Timed Exam</div>
+        <div class="quick-btn-sub">60 questions, 60 min</div>
+      </button>
+      <button class="quick-btn" id="qb-adaptive">
+        <div class="quick-btn-icon">🎯</div>
+        <div class="quick-btn-label">Adaptive Practice</div>
+        <div class="quick-btn-sub">Focus on weak areas</div>
+      </button>
+      <button class="quick-btn" id="qb-review">
+        <div class="quick-btn-icon">↩</div>
+        <div class="quick-btn-label">Review Wrong</div>
+        <div class="quick-btn-sub" id="qb-review-sub">0 questions</div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ROW 3: INSTRUCTIONAL AREAS + TREND -->
+  <div class="mid-row">
+
+    <!-- Weakest Instructional Areas -->
+    <div class="card">
+      <div class="section-label">Instructional Areas — <span id="areas-cluster-label" style="color:var(--cyan)">your cluster</span></div>
+      <table class="areas-table">
+        <thead><tr>
+          <th>Area</th>
+          <th>Progress</th>
+          <th style="text-align:center">Accuracy</th>
+          <th style="text-align:right">Status</th>
+        </tr></thead>
+        <tbody id="areas-tbody">
+          <tr><td colspan="4" style="color:var(--muted);font-size:.85rem;padding-top:12px">Loading areas…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Performance Trend -->
+    <div class="card">
+      <div class="section-label">Recent Performance</div>
+      <div class="trend-chart" id="trend-chart">
+        <p class="trend-empty">Complete a quiz to see your trend</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 4: KPI HEATMAP + REVIEW CARD + AI SUGGESTION -->
+  <div class="bot-row">
+
+    <!-- KPI Heatmap -->
+    <div class="card">
+      <div class="section-label">KPI Mastery</div>
+      <div class="heatmap-list" id="heatmap-list">
+        <div style="color:var(--muted);font-size:.82rem">Loading KPIs…</div>
+      </div>
+    </div>
+
+    <!-- Wrong Answer Review -->
+    <div class="card review-card">
+      <div class="section-label">Wrong Answer Recovery</div>
+      <div class="review-count" id="review-count">0</div>
+      <div class="review-label">questions to review</div>
+      <button class="btn-review" id="btn-start-review">Review Now →</button>
+    </div>
+
+    <!-- AI Study Suggestion -->
+    <div class="card ai-card">
+      <div class="ai-tag">✦ Today's Focus</div>
+      <div class="ai-focus-area" id="ai-focus-area">Loading…</div>
+      <div class="ai-body" id="ai-body">Analyzing your performance data…</div>
+      <div class="ai-impact" id="ai-impact"></div>
+    </div>
+
+  </div>
+
+  <!-- KPI SEARCH -->
+  <div class="kpi-search-wrap">
+    <div class="section-label">Quick KPI Lookup</div>
+    <div class="kpi-search-inner">
+      <svg class="kpi-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="kpi-search" placeholder="Search a KPI… e.g. ROI, cash flow, SWOT"/>
+    </div>
+    <div class="kpi-result" id="kpi-result">
+      <div class="kpi-result-name" id="kr-name"></div>
+      <div class="kpi-result-def"  id="kr-def"></div>
+      <div class="kpi-result-tag"  id="kr-tag"></div>
+    </div>
+  </div>
+
+</div><!-- /page-wrap -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/static/common.js"></script>
-
 <script>
 (async () => {
   const user = await requireAuth();
@@ -50,71 +372,296 @@
   initTopbar(user);
 
   const favCluster = user.user_metadata?.favorite_cluster || null;
+  document.getElementById('cluster-badge').textContent = favCluster ? `Cluster: ${favCluster}` : 'No cluster set — go to Settings';
+  if (favCluster) document.getElementById('areas-cluster-label').textContent = favCluster;
 
-  try {
-    const [{ data: qs }, { data: hist }] = await Promise.all([
-      sb.from('questions').select('cluster,kpi_code'),
-      sb.from('quiz_history').select('kpi_code,is_correct,cluster').eq('user_id', user.id)
-    ]);
+  // ── FETCH ALL DATA ──────────────────────────────────────
+  const [{ data: allQs }, { data: hist }, { data: kpis }] = await Promise.all([
+    sb.from('questions').select('id, cluster, kpi_code, difficulty'),
+    sb.from('quiz_history').select('question_id, kpi_code, cluster, is_correct, created_at').eq('user_id', user.id).order('created_at', { ascending: false }),
+    sb.from('kpis').select('kpi_code, name, description, cluster')
+  ]);
 
-    const qRows = qs || [], hRows = hist || [];
-    const total   = hRows.length;
-    const correct = hRows.filter(r => r.is_correct).length;
-    const acc     = total ? Math.round(correct / total * 100) : null;
-    const tried   = [...new Set(hRows.map(r => r.cluster))].length;
+  const qs   = allQs || [];
+  const rows = hist  || [];
+  const kpiList = kpis || [];
 
-    document.getElementById('stat-acc').innerHTML        = acc !== null ? `${acc}<span>%</span>` : '—';
-    document.getElementById('stat-clusters').textContent = tried || '0';
+  // ── READINESS SCORE ─────────────────────────────────────
+  const recent5 = [...new Set(
+    rows.map(r => {
+      // group by quiz session (by date day)
+      return r.created_at?.slice(0,10);
+    })
+  )].slice(0,5);
 
-    const clusterQ = {}, clusterH = {};
-    qRows.forEach(q => { clusterQ[q.cluster] = (clusterQ[q.cluster] || 0) + 1; });
-    hRows.forEach(r => {
-      if (!clusterH[r.cluster]) clusterH[r.cluster] = { c: 0, t: 0 };
-      clusterH[r.cluster].t++;
-      if (r.is_correct) clusterH[r.cluster].c++;
-    });
+  const recentRows = rows.filter(r => recent5.includes(r.created_at?.slice(0,10)));
+  const recentAcc  = recentRows.length ? recentRows.filter(r=>r.is_correct).length / recentRows.length : null;
 
-    const grid = document.getElementById('cluster-grid');
-    grid.innerHTML = '';
-    const all = [...new Set([...Object.keys(clusterQ), ...Object.keys(clusterH)])];
+  // Difficulty weighting
+  const diffWeight = { easy: 0.7, medium: 1.0, hard: 1.3 };
+  let weightedSum = 0, weightedCount = 0;
+  rows.slice(0, 50).forEach(r => {
+    const q = qs.find(q => q.id === r.question_id);
+    const w = diffWeight[q?.difficulty] || 1.0;
+    weightedSum   += r.is_correct ? w : 0;
+    weightedCount += w;
+  });
+  const weightedAcc = weightedCount ? weightedSum / weightedCount : null;
 
-    if (!all.length) {
-      grid.innerHTML = '<p style="color:var(--muted);font-size:.9rem">No questions found.</p>';
-      return;
-    }
+  // KPI coverage
+  const coveredKpis  = new Set(rows.map(r=>r.kpi_code)).size;
+  const totalKpis    = new Set(qs.map(q=>q.kpi_code)).size;
+  const kpiCoverage  = totalKpis ? coveredKpis / totalKpis : 0;
 
-    all.sort((a, b) => {
-      if (a === favCluster) return -1;
-      if (b === favCluster) return 1;
-      return a.localeCompare(b);
-    });
-
-    all.forEach(cluster => {
-      const count = clusterQ[cluster] || 0;
-      const ca    = clusterH[cluster];
-      const pct   = ca ? Math.round(ca.c / ca.t * 100) : null;
-      const cls   = pct === null ? 'none' : pct >= 70 ? 'good' : pct >= 40 ? 'mid' : 'low';
-      const isFav = cluster === favCluster;
-
-      const card = document.createElement('div');
-      card.className = 'cluster-card';
-      if (isFav) card.style.borderColor = 'var(--cyan)';
-      card.innerHTML = `
-        <div class="c-acc ${cls}">${pct !== null ? pct + '%' : 'New'}</div>
-        <div class="c-name">${cluster}${isFav ? ' <span style="font-size:.65rem;color:var(--cyan);vertical-align:middle">★</span>' : ''}</div>
-        <div class="c-count">${count} question${count !== 1 ? 's' : ''}</div>
-      `;
-      card.onclick = () => {
-        Store.set('cluster', cluster);
-        window.location.href = '/app/selector.html';
-      };
-      grid.appendChild(card);
-    });
-
-  } catch (e) {
-    console.error(e);
-    document.getElementById('cluster-grid').innerHTML = '<p style="color:var(--wrong);font-size:.9rem">Error loading data.</p>';
+  let readiness = null;
+  if (weightedAcc !== null) {
+    readiness = Math.round((weightedAcc * 0.6 + kpiCoverage * 0.4) * 100);
+    readiness = Math.min(99, Math.max(1, readiness));
   }
+
+  const rEl = document.getElementById('readiness-pct');
+  const ring = document.getElementById('readiness-ring');
+  if (readiness !== null) {
+    rEl.textContent = readiness + '%';
+    const color = readiness >= 70 ? 'var(--correct)' : readiness >= 45 ? 'var(--warn)' : 'var(--wrong)';
+    ring.style.stroke = color;
+    rEl.style.color   = color;
+    setTimeout(() => {
+      ring.style.strokeDashoffset = 289 - (readiness / 100) * 289;
+    }, 100);
+    document.getElementById('prob-80').textContent = `Score 80+: ${Math.min(95, Math.round(readiness * 0.85))}%`;
+    document.getElementById('prob-90').textContent = `Score 90+: ${Math.min(85, Math.round(readiness * 0.55))}%`;
+  } else {
+    rEl.textContent = 'N/A';
+    document.getElementById('prob-80').textContent = 'Score 80+: —';
+    document.getElementById('prob-90').textContent = 'Score 90+: —';
+  }
+
+  // ── STREAK ──────────────────────────────────────────────
+  const today = new Date();
+  const days = ['S','M','T','W','T','F','S'];
+  let streak = 0;
+  const activeDays = new Set(rows.map(r => r.created_at?.slice(0,10)));
+
+  // Count streak backwards from today
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    if (activeDays.has(key)) streak++;
+    else if (i > 0) break;
+  }
+
+  document.getElementById('streak-num').textContent = streak;
+
+  // Last 7 days dots
+  const dotWrap = document.getElementById('streak-dots');
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0,10);
+    const dot = document.createElement('div');
+    dot.className = 'streak-dot ' + (activeDays.has(key) ? 'done' : 'miss');
+    dot.textContent = days[d.getDay()];
+    dotWrap.appendChild(dot);
+  }
+
+  // Questions this week
+  const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 7);
+  const weekCount = rows.filter(r => new Date(r.created_at) >= weekAgo).length;
+  document.getElementById('week-count').textContent = weekCount;
+
+  // ── WRONG ANSWER COUNT ──────────────────────────────────
+  const wrongRows = rows.filter(r => !r.is_correct);
+  const uniqueWrong = [...new Set(wrongRows.map(r => r.question_id))].length;
+  document.getElementById('review-count').textContent = uniqueWrong;
+  document.getElementById('qb-review-sub').textContent = `${uniqueWrong} question${uniqueWrong !== 1 ? 's' : ''}`;
+
+  // ── QUICK START BUTTONS ─────────────────────────────────
+  const lastCluster = rows[0]?.cluster || favCluster;
+
+  document.getElementById('qb-continue').onclick = () => {
+    if (lastCluster) { Store.set('cluster', lastCluster); window.location.href = '/app/selector.html'; }
+    else alert('No previous session found. Pick a cluster below.');
+  };
+  document.getElementById('qb-exam').onclick = () => {
+    const c = favCluster || lastCluster;
+    if (!c) { alert('Set a favorite cluster in Settings first.'); return; }
+    Store.set('cluster', c); Store.set('quiz_mode', 'exam'); window.location.href = '/app/selector.html';
+  };
+  document.getElementById('qb-adaptive').onclick = () => {
+    const c = favCluster || lastCluster;
+    if (!c) { alert('Set a favorite cluster in Settings first.'); return; }
+    Store.set('cluster', c); Store.set('quiz_mode', 'adaptive'); window.location.href = '/app/selector.html';
+  };
+  document.getElementById('qb-review').onclick = () => {
+    if (!uniqueWrong) { alert('No wrong answers to review yet!'); return; }
+    Store.set('quiz_mode', 'review'); Store.set('cluster', lastCluster || favCluster);
+    window.location.href = '/app/selector.html';
+  };
+  document.getElementById('btn-start-review').onclick = document.getElementById('qb-review').onclick;
+
+  // ── INSTRUCTIONAL AREAS ─────────────────────────────────
+  if (favCluster) {
+    const clusterQs   = qs.filter(q => q.cluster === favCluster);
+    const clusterHist = rows.filter(r => r.cluster === favCluster);
+
+    // Group by KPI area (use kpi_code prefix as "area" proxy)
+    const areaMap = {};
+    clusterQs.forEach(q => {
+      const area = q.kpi_code?.split('-')[0] || q.kpi_code || 'General';
+      if (!areaMap[area]) areaMap[area] = { correct: 0, total: 0, questions: 0 };
+      areaMap[area].questions++;
+    });
+    clusterHist.forEach(r => {
+      const area = r.kpi_code?.split('-')[0] || r.kpi_code || 'General';
+      if (!areaMap[area]) areaMap[area] = { correct: 0, total: 0, questions: 0 };
+      areaMap[area].total++;
+      if (r.is_correct) areaMap[area].correct++;
+    });
+
+    const tbody = document.getElementById('areas-tbody');
+    const areas = Object.entries(areaMap).sort((a,b) => {
+      const pA = a[1].total ? a[1].correct/a[1].total : 1;
+      const pB = b[1].total ? b[1].correct/b[1].total : 1;
+      return pA - pB; // worst first
+    });
+
+    if (!areas.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);font-size:.85rem;padding-top:8px">No data yet for this cluster.</td></tr>';
+    } else {
+      tbody.innerHTML = areas.map(([area, data]) => {
+        const pct    = data.total ? Math.round(data.correct / data.total * 100) : null;
+        const color  = pct === null ? 'var(--muted)' : pct >= 80 ? 'var(--correct)' : pct >= 65 ? 'var(--warn)' : 'var(--wrong)';
+        const status = pct === null ? 'new' : pct >= 80 ? 'strong' : pct >= 65 ? 'improving' : 'needs';
+        const label  = pct === null ? 'New' : pct >= 80 ? 'Strong' : pct >= 65 ? 'Improving' : 'Needs Work';
+        const barW   = pct ?? 0;
+        return `<tr class="area-row" data-cluster="${favCluster}" data-area="${area}" style="cursor:pointer">
+          <td style="font-weight:600">${area}</td>
+          <td><span class="area-bar-wrap"><span class="area-bar" style="width:${barW}%;background:${color}"></span></span></td>
+          <td style="text-align:center"><span class="area-pct" style="color:${color}">${pct !== null ? pct+'%' : '—'}</span></td>
+          <td style="text-align:right"><span class="status-pill ${status}">${label}</span></td>
+        </tr>`;
+      }).join('');
+    }
+  } else {
+    document.getElementById('areas-tbody').innerHTML =
+      '<tr><td colspan="4" style="color:var(--muted);font-size:.85rem;padding-top:8px">Set a favorite cluster in <a href="/app/settings.html" style="color:var(--cyan)">Settings</a> to see your areas.</td></tr>';
+  }
+
+  // Area row clicks
+  document.getElementById('areas-tbody').addEventListener('click', e => {
+    const row = e.target.closest('.area-row');
+    if (!row) return;
+    Store.set('cluster', row.dataset.cluster);
+    Store.set('filter_area', row.dataset.area);
+    window.location.href = '/app/selector.html';
+  });
+
+  // ── PERFORMANCE TREND ────────────────────────────────────
+  // Group history by day, get last 5 distinct quiz sessions
+  const sessionMap = {};
+  rows.forEach(r => {
+    const day = r.created_at?.slice(0,10);
+    if (!day) return;
+    if (!sessionMap[day]) sessionMap[day] = { correct: 0, total: 0 };
+    sessionMap[day].total++;
+    if (r.is_correct) sessionMap[day].correct++;
+  });
+
+  const sessions = Object.entries(sessionMap)
+    .sort((a,b) => a[0].localeCompare(b[0]))
+    .slice(-6)
+    .map(([day, s]) => ({ day, pct: Math.round(s.correct / s.total * 100) }));
+
+  const trendEl = document.getElementById('trend-chart');
+  if (sessions.length >= 2) {
+    const max = Math.max(...sessions.map(s=>s.pct));
+    trendEl.innerHTML = sessions.map((s, i) => {
+      const h = Math.round((s.pct / 100) * 80);
+      const color = s.pct >= 70 ? 'var(--correct)' : s.pct >= 45 ? 'var(--warn)' : 'var(--wrong)';
+      return `<div class="trend-bar-wrap">
+        <div class="trend-score ${s.pct===max?'best':''}">${s.pct}%</div>
+        <div class="trend-bar" style="height:${h}px;background:${color}"></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── KPI HEATMAP ──────────────────────────────────────────
+  const kpiAcc = {};
+  rows.forEach(r => {
+    if (!r.kpi_code) return;
+    if (!kpiAcc[r.kpi_code]) kpiAcc[r.kpi_code] = { c:0, t:0 };
+    kpiAcc[r.kpi_code].t++;
+    if (r.is_correct) kpiAcc[r.kpi_code].c++;
+  });
+
+  const heatmapEl = document.getElementById('heatmap-list');
+  const kpiEntries = Object.entries(kpiAcc)
+    .map(([code, d]) => ({ code, pct: Math.round(d.c/d.t*100) }))
+    .sort((a,b) => a.pct - b.pct)
+    .slice(0, 8);
+
+  if (!kpiEntries.length) {
+    heatmapEl.innerHTML = '<div style="color:var(--muted);font-size:.82rem">Complete quizzes to build your KPI map.</div>';
+  } else {
+    heatmapEl.innerHTML = kpiEntries.map(({code, pct}) => {
+      const color = pct >= 80 ? 'var(--correct)' : pct >= 60 ? 'var(--warn)' : 'var(--wrong)';
+      const name  = kpiList.find(k=>k.kpi_code===code)?.name || code;
+      return `<div class="hm-row">
+        <div class="hm-name" title="${name}">${name}</div>
+        <div class="hm-bar-bg"><div class="hm-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="hm-pct" style="color:${color}">${pct}%</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── AI STUDY SUGGESTION ──────────────────────────────────
+  const worstKpi = kpiEntries[0]; // already sorted worst first
+  const focusEl  = document.getElementById('ai-focus-area');
+  const bodyEl   = document.getElementById('ai-body');
+  const impactEl = document.getElementById('ai-impact');
+
+  if (worstKpi) {
+    const kpiMeta = kpiList.find(k => k.kpi_code === worstKpi.code);
+    const areaName = kpiMeta?.name || worstKpi.code;
+    const gap = 80 - worstKpi.pct;
+    const boost = Math.round(gap * 0.15);
+    focusEl.textContent = areaName;
+    bodyEl.textContent  = `You're at ${worstKpi.pct}% on this area. Answering 10–15 focused questions here could close the gap.`;
+    impactEl.textContent = `↑ Could increase your readiness score by ~${boost}%`;
+  } else if (readiness === null) {
+    focusEl.textContent = 'Start your first quiz';
+    bodyEl.textContent  = 'Complete a practice session to unlock personalized AI study suggestions.';
+    impactEl.textContent = '';
+  } else {
+    focusEl.textContent = 'Great coverage!';
+    bodyEl.textContent  = "You've practiced across your KPIs. Keep up your streak to maintain readiness.";
+    impactEl.textContent = '';
+  }
+
+  // ── KPI SEARCH ───────────────────────────────────────────
+  const searchEl  = document.getElementById('kpi-search');
+  const resultEl  = document.getElementById('kpi-result');
+
+  searchEl.addEventListener('input', () => {
+    const q = searchEl.value.trim().toLowerCase();
+    if (q.length < 2) { resultEl.classList.remove('show'); return; }
+    const match = kpiList.find(k =>
+      k.kpi_code?.toLowerCase().includes(q) ||
+      k.name?.toLowerCase().includes(q)
+    );
+    if (match) {
+      document.getElementById('kr-name').textContent = match.name || match.kpi_code;
+      document.getElementById('kr-def').textContent  = match.description || 'No description available.';
+      document.getElementById('kr-tag').textContent  = `KPI Code: ${match.kpi_code}` + (match.cluster ? ` · ${match.cluster}` : '');
+      resultEl.classList.add('show');
+    } else {
+      document.getElementById('kr-name').textContent = 'No match found';
+      document.getElementById('kr-def').textContent  = `Try a different search term.`;
+      document.getElementById('kr-tag').textContent  = '';
+      resultEl.classList.add('show');
+    }
+  });
+
 })();
 </script>
 </body>
