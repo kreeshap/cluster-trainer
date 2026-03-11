@@ -9,15 +9,244 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="/static/styles.css">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0b1f1f;
+      --panel:     #112929;
+      --card:      #132f2f;
+      --input:     #1a3a3a;
+      --border:    #1e4040;
+      --border2:   #245050;
+      --cyan:      #00c2e0;
+      --cyan-dim:  #008fa3;
+      --cyan-glow: rgba(0,194,224,.15);
+      --white:     #f0fafa;
+      --muted:     #6a9898;
+    }
+    html, body { height: 100%; background: var(--bg); font-family: 'Barlow', sans-serif; color: var(--white); overflow-x: hidden; }
+    .hidden { display: none !important; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+    /* TWO-COLUMN AUTH LAYOUT */
+    .auth-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100vh;
+    }
+
+    /* LEFT PANEL — FORM */
+    .auth-left {
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 10%;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 0% 100%, rgba(0,194,224,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .auth-heading {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      animation: fadeUp .4s ease both;
+    }
+    .auth-sub {
+      font-size: .95rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+      animation: fadeUp .4s .06s ease both;
+    }
+
+    .field {
+      margin-bottom: .9rem;
+      animation: fadeUp .4s .12s ease both;
+    }
+    .field input {
+      width: 100%;
+      background: var(--input);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      color: var(--white);
+      font-family: 'Barlow', sans-serif;
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field input::placeholder { color: var(--muted); }
+    .field input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px var(--cyan-glow);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--cyan);
+      border: none;
+      border-radius: 8px;
+      color: #051a1a;
+      font-family: 'Barlow', sans-serif;
+      font-size: .88rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .2s, transform .1s, opacity .2s;
+      animation: fadeUp .4s .18s ease both;
+    }
+    .btn-primary:hover   { background: var(--cyan-dim); }
+    .btn-primary:active  { transform: scale(.985); }
+    .btn-primary:disabled{ opacity: .5; cursor: not-allowed; }
+
+    .auth-links {
+      margin-top: 1.2rem;
+      text-align: center;
+      font-size: .88rem;
+      color: var(--muted);
+      animation: fadeUp .4s .24s ease both;
+    }
+    .auth-links.stack { display: flex; flex-direction: column; gap: 7px; }
+    .auth-links a {
+      color: var(--white);
+      text-decoration: underline;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    .auth-links a:hover { color: var(--cyan); }
+
+    .err-box {
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: .83rem;
+      color: #f87171;
+      margin-bottom: .9rem;
+      display: none;
+    }
+    .err-box.show { display: block; }
+
+    /* RIGHT PANEL — BRANDING */
+    .auth-right {
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 100% 50%, rgba(0,194,224,.07) 0%, transparent 65%);
+    }
+    .brand-block {
+      text-align: left;
+      line-height: 1;
+      z-index: 1;
+    }
+    .brand-cluster {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(4rem, 8vw, 7rem);
+      color: var(--white);
+      display: block;
+    }
+    .brand-trainer {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(4rem, 8vw, 7rem);
+      color: var(--cyan);
+      display: block;
+    }
+
+    @media (max-width: 640px) {
+      .auth-layout { grid-template-columns: 1fr; }
+      .auth-right  { display: none; }
+    }
+  </style>
 </head>
 <body>
 
-<div id="page-signin"> ... </div>
-<div id="page-signup" class="hidden"> ... </div>
-<div id="page-forgot" class="hidden"> ... </div>
+<!-- SIGN IN -->
+<div id="page-signin">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Welcome back</h1>
+      <p class="auth-sub">Sign in to your account</p>
+      <div class="err-box" id="si-err"></div>
+      <div class="field"><input type="email"    id="si-email" placeholder="email@email.com" autocomplete="email"/></div>
+      <div class="field"><input type="password" id="si-pass"  placeholder="password" autocomplete="current-password"/></div>
+      <button class="btn-primary" id="btn-signin">Sign In</button>
+      <div class="auth-links stack">
+        <span><a id="go-forgot">Forgot your password?</a></span>
+        <span>Don't have an account? <a id="go-signup">Sign up!</a></span>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SIGN UP -->
+<div id="page-signup" class="hidden">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Get started!</h1>
+      <p class="auth-sub">Create your account</p>
+      <div class="err-box" id="su-err"></div>
+      <div class="field"><input type="email"    id="su-email" placeholder="email@email.com" autocomplete="email"/></div>
+      <div class="field"><input type="password" id="su-pass"  placeholder="password (min. 6 characters)" autocomplete="new-password"/></div>
+      <button class="btn-primary" id="btn-signup">Sign Up</button>
+      <div class="auth-links">Already have an account? <a id="go-signin">Sign in!</a></div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div id="page-forgot" class="hidden">
+  <div class="auth-layout">
+    <div class="auth-left">
+      <h1 class="auth-heading">Reset Password</h1>
+      <p class="auth-sub">Enter your email for a reset link</p>
+      <div class="err-box" id="fp-err"></div>
+      <div class="field"><input type="email" id="fp-email" placeholder="email@email.com" autocomplete="email"/></div>
+      <button class="btn-primary" id="btn-forgot">Send Reset Link</button>
+      <div class="auth-links"><a id="go-signin2">← Back to Sign In</a></div>
+    </div>
+    <div class="auth-right">
+      <div class="brand-block">
+        <span class="brand-cluster">CLUSTER</span>
+        <span class="brand-trainer">TRAINER</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script src="/static/common.js"></script>
 
 <script>
@@ -33,14 +262,15 @@ document.getElementById('btn-signin').onclick = async () => {
   const email=document.getElementById('si-email').value.trim(), pass=document.getElementById('si-pass').value;
   if(!email||!pass) return errMsg('si-err','Please fill in all fields.');
   setBtn('btn-signin',true,'Sign In');
-  
-  // Use 'sb' which is defined in common.js
   const {error} = await sb.auth.signInWithPassword({email,password:pass});
   setBtn('btn-signin',false,'Sign In');
-  
   if(error) return errMsg('si-err',error.message);
-  window.location.href='/app/dashboard.html'; 
+  window.location.href='/app/dashboard.html';
 };
+
+document.getElementById('si-pass').addEventListener('keydown', e => {
+  if(e.key==='Enter') document.getElementById('btn-signin').click();
+});
 
 // SIGN UP
 document.getElementById('btn-signup').onclick = async () => {
@@ -49,13 +279,11 @@ document.getElementById('btn-signup').onclick = async () => {
   if(!email||!pass) return errMsg('su-err','Please fill in all fields.');
   if(pass.length<6) return errMsg('su-err','Password must be at least 6 characters.');
   setBtn('btn-signup',true,'Sign Up');
-  
   const {data,error} = await sb.auth.signUp({email,password:pass});
   setBtn('btn-signup',false,'Sign Up');
-  
   if(error) return errMsg('su-err',error.message);
-  if(data.session){ 
-    window.location.href='/app/dashboard.html'; 
+  if(data.session){
+    window.location.href='/app/dashboard.html';
   } else {
     const e=document.getElementById('su-err');
     e.textContent='✓ Check your email to confirm your account.';
@@ -65,16 +293,16 @@ document.getElementById('btn-signup').onclick = async () => {
 
 // FORGOT PASSWORD
 document.getElementById('btn-forgot').onclick = async () => {
-  clrMsg('fp-err'); clrMsg('fp-ok');
+  clrMsg('fp-err');
   const email=document.getElementById('fp-email').value.trim();
   if(!email) return errMsg('fp-err','Please enter your email.');
   setBtn('btn-forgot',true,'Send Reset Link');
-  
   const {error} = await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/app/'});
   setBtn('btn-forgot',false,'Send Reset Link');
-  
   if(error) return errMsg('fp-err',error.message);
-  const ok=document.getElementById('fp-ok'); ok.textContent='✓ Reset link sent — check your inbox.'; ok.classList.add('show');
+  const e=document.getElementById('fp-err');
+  e.textContent='✓ Reset link sent — check your inbox.';
+  e.style.cssText='display:block;color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)';
 };
 
 // Navigation
@@ -85,8 +313,8 @@ document.getElementById('go-signin2').onclick = ()=>show('signin');
 
 // Auto-redirect if already logged in
 (async()=>{
-  if (typeof sb !== 'undefined') {
-    const {data:{session}}=await sb.auth.getSession();
+  if(typeof sb !== 'undefined'){
+    const {data:{session}} = await sb.auth.getSession();
     if(session) window.location.href='/app/dashboard.html';
   }
 })();
