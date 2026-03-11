@@ -6,8 +6,7 @@
   <title>Cluster Trainer — Results</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body style="padding-top:60px">
 
@@ -54,7 +53,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="{{ url_for('static', filename='common.js') }}"></script>
+<script src="/static/common.js"></script>
 
 <script>
 (async () => {
@@ -63,8 +62,7 @@
   initTopbar(user);
 
   const result = Store.get('quiz_result');
-  // Absolute redirect to avoid 404
-  if (!result) { window.location.href = '/dashboard.html'; return; }
+  if (!result) { window.location.href = '/app/dashboard.html'; return; }
 
   const { score, total, cluster } = result;
   const pct = total ? Math.round(score / total * 100) : 0;
@@ -85,15 +83,13 @@
   ring.style.strokeDashoffset = '345.4';
   ring.style.stroke = pct >= 70 ? 'var(--correct)' : pct >= 40 ? '#f59e0b' : 'var(--wrong)';
   
-  // Animation delay
   setTimeout(() => { 
     ring.style.strokeDashoffset = 345.4 - (pct / 100) * 345.4; 
   }, 100);
 })();
 
-// Absolute paths for Flask routing
-document.getElementById('btn-again').onclick = () => window.location.href = '/selector.html';
-document.getElementById('btn-home').onclick  = () => window.location.href = '/dashboard.html';
+document.getElementById('btn-again').onclick = () => window.location.href = '/app/selector.html';
+document.getElementById('btn-home').onclick  = () => window.location.href = '/app/dashboard.html';
 </script>
 </body>
 </html>

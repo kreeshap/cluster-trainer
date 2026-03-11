@@ -6,8 +6,7 @@
   <title>Cluster Trainer — Select Quiz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body style="padding-top:60px">
 
@@ -25,7 +24,7 @@
 </div>
 
 <div class="page-wrap">
-  <button class="back-btn" onclick="window.location.href='/dashboard.html'">
+  <button class="back-btn" onclick="window.location.href='/app/dashboard.html'">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     Back to Dashboard
   </button>
@@ -62,7 +61,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="{{ url_for('static', filename='common.js') }}"></script>
+<script src="/static/common.js"></script>
 
 <script>
 let selDiff = 'all', selType = 'all';
@@ -73,11 +72,9 @@ let selDiff = 'all', selType = 'all';
   initTopbar(user);
 
   const cluster = Store.get('cluster');
-  // Use absolute redirect
-  if (!cluster) { window.location.href = '/dashboard.html'; return; }
+  if (!cluster) { window.location.href = '/app/dashboard.html'; return; }
   document.getElementById('sel-title').innerHTML = `${cluster} <span>Questions</span>`;
 
-  // Apply default difficulty from settings if set
   const defDiff = user.user_metadata?.default_difficulty;
   if (defDiff && defDiff !== 'all') {
     selDiff = defDiff;
@@ -87,7 +84,6 @@ let selDiff = 'all', selType = 'all';
   }
 })();
 
-// Filter chips
 document.querySelectorAll('#diff-filters .filter-chip').forEach(btn => {
   btn.onclick = () => {
     selDiff = btn.dataset.diff;
@@ -107,7 +103,6 @@ document.getElementById('btn-start-quiz').onclick = async () => {
   showLoading('Loading questions…');
   const cluster = Store.get('cluster');
   
-  // Build the query
   let q = sb.from('questions').select('*').eq('cluster', cluster);
   if (selDiff !== 'all') q = q.eq('difficulty', selDiff);
   if (selType !== 'all') q = q.eq('question_type', selType);
@@ -120,18 +115,15 @@ document.getElementById('btn-start-quiz').onclick = async () => {
     return; 
   }
 
-  // Shuffle
   let qs = (data || []).sort(() => Math.random() - .5);
   
-  // Slice to count
   const n = document.getElementById('sel-count').value;
   if (n !== 'all') qs = qs.slice(0, parseInt(n));
   
   Store.set('quiz_questions', qs);
   Store.set('quiz_cluster', cluster);
   
-  // Use absolute path for navigation
-  window.location.href = '/quiz.html';
+  window.location.href = '/app/quiz.html';
 };
 </script>
 </body>

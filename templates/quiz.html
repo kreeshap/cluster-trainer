@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/styles.css">
-<script src="/static/common.js"></script>
 </head>
 <body style="padding-top:60px">
 
@@ -55,7 +54,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js"></script>
+<script src="/static/common.js"></script>
 <script>
 let user, quizQs = [], quizIdx = 0, quizScore = 0, answered = false;
 
@@ -65,7 +64,7 @@ let user, quizQs = [], quizIdx = 0, quizScore = 0, answered = false;
   initTopbar(user);
 
   quizQs = Store.get('quiz_questions');
-  if (!quizQs || !quizQs.length) { window.location.href = 'selector.html'; return; }
+  if (!quizQs || !quizQs.length) { window.location.href = '/app/selector.html'; return; }
 
   renderQ();
 })();
@@ -135,7 +134,7 @@ document.getElementById('btn-next').onclick = () => {
   quizIdx++;
   if (quizIdx >= quizQs.length) {
     Store.set('quiz_result', { score: quizScore, total: quizIdx, cluster: Store.get('quiz_cluster') });
-    window.location.href = 'results.html';
+    window.location.href = '/app/results.html';
   } else {
     renderQ();
   }
@@ -144,9 +143,9 @@ document.getElementById('btn-next').onclick = () => {
 document.getElementById('btn-quit').onclick = () => {
   if (quizIdx > 0) {
     Store.set('quiz_result', { score: quizScore, total: quizIdx, cluster: Store.get('quiz_cluster') });
-    window.location.href = 'results.html';
+    window.location.href = '/app/results.html';
   } else {
-    window.location.href = 'selector.html';
+    window.location.href = '/app/selector.html';
   }
 };
 </script>
