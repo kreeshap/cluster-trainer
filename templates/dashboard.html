@@ -6,11 +6,10 @@
   <title>Cluster Trainer — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body style="padding-top:60px">
 
-<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
   <div class="topbar-right">
@@ -29,10 +28,8 @@
   <p class="dash-sub">Choose a cluster to start practicing</p>
 
   <div class="stat-row">
-    <div class="stat-card"><div class="label">Questions Done</div><div class="value" id="stat-total">—</div></div>
     <div class="stat-card"><div class="label">Overall Accuracy</div><div class="value" id="stat-acc">—</div></div>
     <div class="stat-card"><div class="label">Clusters Tried</div><div class="value" id="stat-clusters">—</div></div>
-    <div class="stat-card"><div class="label">Questions Available</div><div class="value" id="stat-qcount">—</div></div>
   </div>
 
   <p class="section-title">Clusters</p>
@@ -42,7 +39,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js"></script>
+<script src="/static/common.js"></script>
+
 <script>
 (async () => {
   const user = await requireAuth();
@@ -51,7 +49,6 @@
   document.getElementById('dash-name').textContent = getDisplayName(user);
   initTopbar(user);
 
-  // Check for a favorite cluster set in settings — highlight it
   const favCluster = user.user_metadata?.favorite_cluster || null;
 
   try {
@@ -66,10 +63,8 @@
     const acc     = total ? Math.round(correct / total * 100) : null;
     const tried   = [...new Set(hRows.map(r => r.cluster))].length;
 
-    document.getElementById('stat-total').textContent    = total || '0';
     document.getElementById('stat-acc').innerHTML        = acc !== null ? `${acc}<span>%</span>` : '—';
     document.getElementById('stat-clusters').textContent = tried || '0';
-    document.getElementById('stat-qcount').textContent   = qRows.length || '0';
 
     const clusterQ = {}, clusterH = {};
     qRows.forEach(q => { clusterQ[q.cluster] = (clusterQ[q.cluster] || 0) + 1; });
@@ -84,11 +79,10 @@
     const all = [...new Set([...Object.keys(clusterQ), ...Object.keys(clusterH)])];
 
     if (!all.length) {
-      grid.innerHTML = '<p style="color:var(--muted);font-size:.9rem">No questions yet — run <code style="background:var(--input);padding:2px 6px;border-radius:4px">python generator.py</code> to generate questions.</p>';
+      grid.innerHTML = '<p style="color:var(--muted);font-size:.9rem">No questions found.</p>';
       return;
     }
 
-    // Sort: favorite cluster first, then alphabetical
     all.sort((a, b) => {
       if (a === favCluster) return -1;
       if (b === favCluster) return 1;
@@ -112,14 +106,14 @@
       `;
       card.onclick = () => {
         Store.set('cluster', cluster);
-        window.location.href = 'selector.html';
+        window.location.href = '/app/selector.html';
       };
       grid.appendChild(card);
     });
 
   } catch (e) {
     console.error(e);
-    document.getElementById('cluster-grid').innerHTML = '<p style="color:var(--wrong);font-size:.9rem">Error loading dashboard. Please refresh.</p>';
+    document.getElementById('cluster-grid').innerHTML = '<p style="color:var(--wrong);font-size:.9rem">Error loading data.</p>';
   }
 })();
 </script>

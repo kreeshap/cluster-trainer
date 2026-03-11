@@ -6,11 +6,11 @@
   <title>Cluster Trainer — Results</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body style="padding-top:60px">
 
-<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
   <div class="topbar-right">
@@ -54,7 +54,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js"></script>
+<script src="{{ url_for('static', filename='common.js') }}"></script>
+
 <script>
 (async () => {
   const user = await requireAuth();
@@ -62,7 +63,8 @@
   initTopbar(user);
 
   const result = Store.get('quiz_result');
-  if (!result) { window.location.href = 'dashboard.html'; return; }
+  // Absolute redirect to avoid 404
+  if (!result) { window.location.href = '/dashboard.html'; return; }
 
   const { score, total, cluster } = result;
   const pct = total ? Math.round(score / total * 100) : 0;
@@ -71,6 +73,7 @@
     pct >= 80 ? 'Great <span>Work!</span>' :
     pct >= 50 ? 'Nice <span>Effort!</span>' :
     'Keep <span>Practicing!</span>';
+    
   document.getElementById('res-sub').textContent  = `You scored ${pct}% on ${cluster}`;
   document.getElementById('res-correct').textContent = score;
   document.getElementById('res-wrong').textContent   = total - score;
@@ -81,11 +84,16 @@
   const ring = document.getElementById('ring-circle');
   ring.style.strokeDashoffset = '345.4';
   ring.style.stroke = pct >= 70 ? 'var(--correct)' : pct >= 40 ? '#f59e0b' : 'var(--wrong)';
-  setTimeout(() => { ring.style.strokeDashoffset = 345.4 - (pct / 100) * 345.4; }, 100);
+  
+  // Animation delay
+  setTimeout(() => { 
+    ring.style.strokeDashoffset = 345.4 - (pct / 100) * 345.4; 
+  }, 100);
 })();
 
-document.getElementById('btn-again').onclick = () => window.location.href = 'selector.html';
-document.getElementById('btn-home').onclick  = () => window.location.href = 'dashboard.html';
+// Absolute paths for Flask routing
+document.getElementById('btn-again').onclick = () => window.location.href = '/selector.html';
+document.getElementById('btn-home').onclick  = () => window.location.href = '/dashboard.html';
 </script>
 </body>
 </html>

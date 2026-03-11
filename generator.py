@@ -31,11 +31,32 @@ KB_PATH   = BASE_DIR / "kpi_knowledge_base.json"
 # ════════════════════════════════════════════════════════════════
 
 def load_kpi_knowledge_base() -> dict:
-    """Load the full KPI knowledge base from JSON."""
+    """Load the full KPI knowledge base from JSON.
+    Supports both flat {"kpis": [...]} and clustered {"clusters": {...}} formats.
+    """
     with open(KB_PATH, "r") as f:
         data = json.load(f)
+
+    kpis = []
+
+    if "kpis" in data:
+        # Flat format: {"kpis": [{kpi_code, kpi_name, cluster, ...}, ...]}
+        kpis = data["kpis"]
+
+    elif "clusters" in data:
+        # Clustered format: {"clusters": {"ClusterName": [{kpi_code, kpi_name, ...}, ...]}}
+        for cluster_name, cluster_kpis in data["clusters"].items():
+            for kpi in cluster_kpis:
+                kpi_copy = dict(kpi)
+                # Ensure cluster field is set from the key
+                kpi_copy["cluster"] = cluster_name
+                kpis.append(kpi_copy)
+
+    else:
+        raise KeyError("kpi_knowledge_base.json must have either a 'kpis' or 'clusters' top-level key")
+
     # Index by kpi_code for fast lookup
-    return {kpi["kpi_code"]: kpi for kpi in data["kpis"]}
+    return {kpi["kpi_code"]: kpi for kpi in kpis}
 
 
 def get_kpi_context(kpi_code: str) -> dict | None:
@@ -133,19 +154,28 @@ Explanation: {ex.get('explanation', '')}
     if force_correct_answer:
         force_instruction = f"\nIMPORTANT: The correct answer MUST be option {force_correct_answer}. Design the question and answers so that {force_correct_answer} is the best answer.\n"
 
+    # Support both rich KBs (with extra fields) and simple KBs (kpi_code + kpi_name only)
+    kpi_name    = kpi.get("kpi_name", "")
+    kpi_code    = kpi.get("kpi_code", "")
+    cluster     = kpi.get("cluster", kpi.get("instructional_area", ""))
+    definition  = kpi.get("definition", f"Understand and apply: {kpi_name}")
+    formula     = kpi.get("formula", "N/A")
+    real_world  = kpi.get("real_world_context", f"This KPI applies to real-world business scenarios in {cluster}.")
+    misconceptions = kpi.get("common_misconceptions", "Students often confuse related concepts or misapply terminology.")
+
     angle_key = f"{difficulty}_angle"
-    angle = kpi.get(angle_key, f"A {difficulty} level question about {kpi['kpi_name']}")
+    angle = kpi.get(angle_key, f"A {difficulty}-level question about {kpi_name}")
 
     prompt = f"""You are an expert DECA exam question writer. Your job is to write high-quality, realistic DECA-style multiple choice questions.
 
 ══ KPI KNOWLEDGE (use this as your content source) ══
-KPI Code: {kpi['kpi_code']}
-KPI Name: {kpi['kpi_name']}
-Cluster: {kpi['cluster']}
-Definition: {kpi['definition']}
-Formula: {kpi.get('formula', 'N/A')}
-Real World Context: {kpi['real_world_context']}
-Common Misconceptions: {kpi['common_misconceptions']}
+KPI Code: {kpi_code}
+KPI Name: {kpi_name}
+Cluster: {cluster}
+Definition: {definition}
+Formula: {formula}
+Real World Context: {real_world}
+Common Misconceptions: {misconceptions}
 {difficulty.capitalize()} Angle to Use: {angle}
 
 {examples_text if examples_text else "No examples available — write in standard DECA exam style."}
@@ -154,7 +184,7 @@ Common Misconceptions: {kpi['common_misconceptions']}
 Write ONE new DECA-style question with these specifications:
 - Question Type: {question_type}
 - Difficulty: {difficulty}
-- Topic: {kpi['kpi_name']} ({kpi['kpi_code']})
+- Topic: {kpi_name} ({kpi_code})
 {force_instruction}
 
 Rules:
@@ -176,8 +206,8 @@ Return ONLY valid JSON in this exact format — no markdown, no extra text:
   "answer_d": "Fourth answer choice",
   "correct": "A",
   "explanation": "Brief explanation of why the correct answer is right.",
-  "kpi_code": "{kpi['kpi_code']}",
-  "cluster": "{kpi['cluster']}",
+  "kpi_code": "{kpi_code}",
+  "cluster": "{cluster}",
   "question_type": "{question_type}",
   "difficulty": "{difficulty}",
   "source": "generated"
@@ -200,7 +230,7 @@ def generate_question(
         return None
 
     # 2. Get style examples
-    examples = get_style_examples(kpi["cluster"], question_type)
+    examples = get_style_examples(kpi.get("cluster", kpi.get("instructional_area", "")), question_type)
 
     # 3. Build prompt
     prompt = build_prompt(kpi, question_type, difficulty, examples, force_correct_answer)
@@ -245,8 +275,6 @@ def generate_question(
     return question
 
 # 20-slot plan: 5 types × 4 difficulties, each type gets exactly 5 questions
-# spread: definition×4, scenario×6, application×4, calculation×4, scenario(hard)×2
-# simplified as a fixed 20-item sequence covering all types & difficulties evenly
 _PLAN_20: list[tuple[str, str]] = [
     # (question_type, difficulty)
     ("definition",   "easy"),
@@ -309,14 +337,17 @@ def run_generation_batch(
             print(f"⚠ Skipping unknown KPI: {kpi_code}")
             continue
 
-        print(f"\n► [{targets.index(kpi_code)+1}/{len(targets)}] {kpi_code} — {kpi['kpi_name']}")
-        clusters_seen.add(kpi["cluster"])
+        cluster = kpi.get("cluster", kpi.get("instructional_area", "Unknown"))
+        kpi_name = kpi.get("kpi_name", kpi_code)
+
+        print(f"\n► [{targets.index(kpi_code)+1}/{len(targets)}] {kpi_code} — {kpi_name}")
+        clusters_seen.add(cluster)
         plan = plan_for(questions_per_kpi)
         kpi_generated = 0
 
         for i, (q_type, diff) in enumerate(plan):
             # Decide whether to force a letter for balance
-            balance = check_answer_balance(kpi["cluster"])
+            balance = check_answer_balance(cluster)
             force   = balance["suggest"] if not balance["balanced"] else None
 
             label = f"[{i+1:02d}/{questions_per_kpi}] {q_type:<12} {diff:<8}"
@@ -342,16 +373,16 @@ def run_generation_batch(
             # Periodic balance report
             if total_generated > 0 and total_generated % check_balance_every == 0:
                 print(f"\n  ── Balance Check @ {total_generated} questions generated ──")
-                for cluster in clusters_seen:
-                    b = check_answer_balance(cluster)
+                for c in clusters_seen:
+                    b = check_answer_balance(c)
                     status = "✓" if b["balanced"] else "⚠"
-                    print(f"  {status} {cluster}: {b.get('percentages', {})}")
+                    print(f"  {status} {c}: {b.get('percentages', {})}")
                 print()
 
         print(f"  └─ KPI done: {kpi_generated}/{questions_per_kpi} saved  "
               f"(running total: {total_generated}/{total_target})")
 
-    #Final summary
+    # Final summary
     print(f"\n{'='*60}")
     print(f"  ✓ Generation complete")
     print(f"  Generated : {total_generated}")

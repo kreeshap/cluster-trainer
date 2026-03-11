@@ -6,11 +6,10 @@
   <title>Cluster Trainer — Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body style="padding-top:60px">
 
-<!-- TOPBAR -->
 <div class="topbar">
   <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
   <div class="topbar-right">
@@ -25,7 +24,7 @@
 </div>
 
 <div class="settings-wrap">
-  <button class="back-btn" onclick="window.location.href='dashboard.html'">
+  <button class="back-btn" onclick="window.location.href='/app/dashboard.html'">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     Back to Dashboard
   </button>
@@ -33,7 +32,6 @@
   <h2 class="settings-title">Account <span>Settings</span></h2>
   <p class="settings-sub">Customize your Cluster Trainer experience</p>
 
-  <!-- PROFILE -->
   <div class="settings-section">
     <p class="section-title">Profile</p>
     <div class="settings-card">
@@ -45,18 +43,15 @@
         <label>Your Cluster <span style="color:var(--muted);font-size:.7rem;text-transform:none;letter-spacing:0">(shown first on dashboard)</span></label>
         <select id="inp-cluster">
           <option value="">None selected</option>
-          <!-- Populated from DB -->
         </select>
       </div>
-      
 
-      <div class="ok-box"  id="profile-ok"></div>
+      <div class="ok-box" id="profile-ok"></div>
       <div class="err-box" id="profile-err"></div>
       <button class="settings-save" id="btn-save-profile">Save Changes</button>
     </div>
   </div>
 
-  <!-- ACCOUNT -->
   <div class="settings-section">
     <p class="section-title">Account</p>
     <div class="settings-card">
@@ -76,7 +71,6 @@
     </div>
   </div>
 
-  <!-- STATS -->
   <div class="settings-section">
     <p class="section-title">Your Stats</p>
     <div class="settings-card">
@@ -88,7 +82,6 @@
         <span class="a-label">Overall Accuracy</span>
         <span class="a-val" id="stat-accuracy">—</span>
       </div>
-
       <div class="account-info">
         <span class="a-label">Needs Work</span>
         <span class="a-val" id="stat-worst" style="color:var(--wrong)">—</span>
@@ -96,7 +89,6 @@
     </div>
   </div>
 
-  <!-- DANGER ZONE -->
   <div class="settings-section">
     <p class="section-title">DELETE</p>
     <div class="danger-zone">
@@ -108,12 +100,14 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="common.js"></script>
+<script src="/static/common.js"></script>
+
 <script>
 let currentUser;
 
 function showMsg(id, msg, isErr) {
   const el = document.getElementById(id);
+  if(!el) return;
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 4000);
@@ -130,7 +124,6 @@ function showMsg(id, msg, isErr) {
   document.getElementById('inp-name').value = meta.display_name || '';
   document.getElementById('acct-email').textContent = currentUser.email;
   document.getElementById('acct-id').textContent    = currentUser.id;
-
 
   // Load clusters from DB
   const { data: qs } = await sb.from('questions').select('cluster');
@@ -153,7 +146,6 @@ function showMsg(id, msg, isErr) {
     document.getElementById('stat-attempts').textContent  = total;
     document.getElementById('stat-accuracy').textContent  = Math.round(correct / total * 100) + '%';
 
-    // Per-cluster accuracy
     const byCluster = {};
     hist.forEach(r => {
       if (!byCluster[r.cluster]) byCluster[r.cluster] = { c: 0, t: 0 };
@@ -161,12 +153,11 @@ function showMsg(id, msg, isErr) {
       if (r.is_correct) byCluster[r.cluster].c++;
     });
     const ranked = Object.entries(byCluster)
-      .filter(([, v]) => v.t >= 3)  // at least 3 attempts
+      .filter(([, v]) => v.t >= 3)
       .map(([k, v]) => ({ name: k, pct: Math.round(v.c / v.t * 100) }))
       .sort((a, b) => b.pct - a.pct);
 
     if (ranked.length) {
-      document.getElementById('stat-best').textContent  = `${ranked[0].name} (${ranked[0].pct}%)`;
       document.getElementById('stat-worst').textContent = `${ranked[ranked.length - 1].name} (${ranked[ranked.length - 1].pct}%)`;
     }
   }
@@ -177,14 +168,13 @@ document.getElementById('btn-save-profile').onclick = async () => {
   const btn  = document.getElementById('btn-save-profile');
   const name = document.getElementById('inp-name').value.trim();
   const clus = document.getElementById('inp-cluster').value;
-  const diff = document.getElementById('inp-diff').value;
 
   btn.disabled = true; btn.textContent = 'Saving…';
 
   const { error } = await sb.auth.updateUser({
     data: {
-      display_name:       name || null,
-      favorite_cluster:   clus || null,
+      display_name:    name || null,
+      favorite_cluster: clus || null,
     }
   });
 
@@ -192,7 +182,6 @@ document.getElementById('btn-save-profile').onclick = async () => {
 
   if (error) { showMsg('profile-err', error.message, true); return; }
 
-  // Update topbar name live
   document.getElementById('topbar-name').textContent = name || currentUser.email.split('@')[0];
   showMsg('profile-ok', '✓ Settings saved!', false);
 };
@@ -200,7 +189,7 @@ document.getElementById('btn-save-profile').onclick = async () => {
 // Reset password
 document.getElementById('btn-reset-pw').onclick = async () => {
   const { error } = await sb.auth.resetPasswordForEmail(currentUser.email, {
-    redirectTo: location.origin + '/index.html'
+    redirectTo: window.location.origin + '/app/'
   });
   if (error) { alert(error.message); return; }
   showMsg('pw-ok', '✓ Reset link sent to your email.', false);
@@ -208,12 +197,14 @@ document.getElementById('btn-reset-pw').onclick = async () => {
 
 // Clear history
 document.getElementById('btn-clear-history').onclick = async () => {
+  if(!confirm("Are you sure? This will delete all your progress data.")) return;
   const { error } = await sb.from('quiz_history').delete().eq('user_id', currentUser.id);
   if (error) { alert(error.message); return; }
   showMsg('danger-ok', 'Quiz history cleared.', false);
-  // Reset stats display
-  ['stat-attempts','stat-accuracy','stat-best','stat-worst'].forEach(id => {
-    document.getElementById(id).textContent = '—';
+
+  ['stat-attempts','stat-accuracy','stat-worst'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.textContent = '—';
   });
 };
 </script>
