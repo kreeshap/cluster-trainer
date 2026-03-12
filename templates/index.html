@@ -15,7 +15,6 @@
     :root {
       --bg:        #0b1f1f;
       --panel:     #112929;
-      --card:      #132f2f;
       --input:     #1a3a3a;
       --border:    #1e4040;
       --border2:   #245050;
@@ -24,26 +23,27 @@
       --cyan-glow: rgba(0,194,224,.15);
       --white:     #f0fafa;
       --muted:     #6a9898;
+      --error:     #f87171;
     }
     html, body { height: 100%; background: var(--bg); font-family: 'Barlow', sans-serif; color: var(--white); overflow-x: hidden; }
     .hidden { display: none !important; }
 
     @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin   { to{transform:rotate(360deg)} }
 
-    /* TWO-COLUMN AUTH LAYOUT */
     .auth-layout {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      height: 100vh;
+      min-height: 100vh;
     }
 
-    /* LEFT PANEL — FORM */
+    /* ── LEFT ────────────────────────────────────────────── */
     .auth-left {
       background: var(--panel);
       display: flex;
       flex-direction: column;
       justify-content: center;
-      padding: 0 10%;
+      padding: 48px 10%;
       position: relative;
       overflow: hidden;
     }
@@ -64,20 +64,30 @@
     .auth-sub {
       font-size: .95rem;
       color: var(--muted);
-      margin-bottom: 2rem;
-      animation: fadeUp .4s .06s ease both;
+      margin-bottom: 1.6rem;
+      animation: fadeUp .4s .05s ease both;
     }
 
     .field {
-      margin-bottom: .9rem;
-      animation: fadeUp .4s .12s ease both;
+      margin-bottom: .85rem;
+      animation: fadeUp .4s .1s ease both;
+      position: relative;
+    }
+    .field label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
     }
     .field input {
       width: 100%;
       background: var(--input);
       border: 1.5px solid var(--border);
       border-radius: 8px;
-      padding: 14px 16px;
+      padding: 13px 44px 13px 14px;
       color: var(--white);
       font-family: 'Barlow', sans-serif;
       font-size: .95rem;
@@ -89,6 +99,66 @@
       border-color: var(--cyan);
       box-shadow: 0 0 0 3px var(--cyan-glow);
     }
+    .field input.field-error { border-color: rgba(239,68,68,.5); }
+
+    .toggle-pw {
+      position: absolute;
+      right: 13px;
+      bottom: 13px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      transition: color .15s;
+    }
+    .toggle-pw:hover { color: var(--cyan); }
+    .toggle-pw svg { width: 18px; height: 18px; }
+
+    .extras-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.2rem;
+      font-size: .83rem;
+      animation: fadeUp .4s .15s ease both;
+    }
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      color: var(--muted);
+      user-select: none;
+    }
+    .remember-me input[type=checkbox] {
+      width: 15px; height: 15px;
+      accent-color: var(--cyan);
+      cursor: pointer;
+    }
+    .remember-me:hover { color: var(--white); }
+    .forgot-link {
+      color: var(--muted);
+      cursor: pointer;
+      transition: color .15s;
+    }
+    .forgot-link:hover { color: var(--cyan); }
+
+    .err-box {
+      background: rgba(239,68,68,.1);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 7px;
+      padding: 10px 14px;
+      font-size: .83rem;
+      color: var(--error);
+      margin-bottom: .9rem;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .err-box.show { display: flex; }
 
     .btn-primary {
       width: 100%;
@@ -105,19 +175,30 @@
       cursor: pointer;
       transition: background .2s, transform .1s, opacity .2s;
       animation: fadeUp .4s .18s ease both;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
-    .btn-primary:hover   { background: var(--cyan-dim); }
-    .btn-primary:active  { transform: scale(.985); }
-    .btn-primary:disabled{ opacity: .5; cursor: not-allowed; }
+    .btn-primary:hover  { background: var(--cyan-dim); }
+    .btn-primary:active { transform: scale(.985); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .spinner {
+      width: 15px; height: 15px;
+      border: 2px solid rgba(5,26,26,.3);
+      border-top-color: #051a1a;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      display: none;
+    }
 
     .auth-links {
-      margin-top: 1.2rem;
+      margin-top: 1.1rem;
       text-align: center;
-      font-size: .88rem;
+      font-size: .85rem;
       color: var(--muted);
-      animation: fadeUp .4s .24s ease both;
+      animation: fadeUp .4s .22s ease both;
     }
-    .auth-links.stack { display: flex; flex-direction: column; gap: 7px; }
     .auth-links a {
       color: var(--white);
       text-decoration: underline;
@@ -126,19 +207,11 @@
     }
     .auth-links a:hover { color: var(--cyan); }
 
-    .err-box {
-      background: rgba(239,68,68,.12);
-      border: 1px solid rgba(239,68,68,.3);
-      border-radius: 6px;
-      padding: 10px 14px;
-      font-size: .83rem;
-      color: #f87171;
-      margin-bottom: .9rem;
-      display: none;
-    }
-    .err-box.show { display: block; }
+    .strength-bars { display: flex; gap: 4px; margin-bottom: 4px; }
+    .strength-bars div { flex: 1; height: 3px; border-radius: 2px; background: var(--border); transition: background .3s; }
+    #strength-label { font-size: .73rem; color: var(--muted); }
 
-    /* RIGHT PANEL — BRANDING */
+    /* ── RIGHT ───────────────────────────────────────────── */
     .auth-right {
       background: var(--bg);
       display: flex;
@@ -151,19 +224,29 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: radial-gradient(ellipse 60% 50% at 100% 50%, rgba(0,194,224,.07) 0%, transparent 65%);
+      background: radial-gradient(ellipse 60% 50% at 100% 50%, rgba(0,194,224,.08) 0%, transparent 65%);
+      pointer-events: none;
     }
-    .brand-block {
-      text-align: left;
-      line-height: 1;
-      z-index: 1;
+    .auth-right::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: .18;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 40%, transparent 100%);
     }
+    .brand-block { text-align: left; line-height: 1; z-index: 1; }
     .brand-cluster {
       font-family: 'Barlow Condensed', sans-serif;
       font-weight: 900;
       font-size: clamp(4rem, 8vw, 7rem);
       color: var(--white);
       display: block;
+      letter-spacing: -.01em;
     }
     .brand-trainer {
       font-family: 'Barlow Condensed', sans-serif;
@@ -171,32 +254,64 @@
       font-size: clamp(4rem, 8vw, 7rem);
       color: var(--cyan);
       display: block;
+      letter-spacing: -.01em;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 680px) {
       .auth-layout { grid-template-columns: 1fr; }
       .auth-right  { display: none; }
+      .auth-left   { padding: 40px 6%; }
     }
   </style>
 </head>
 <body>
 
-<!-- SIGN IN -->
+<!-- ════ SIGN IN ════ -->
 <div id="page-signin">
   <div class="auth-layout">
     <div class="auth-left">
       <h1 class="auth-heading">Welcome back</h1>
       <p class="auth-sub">Sign in to your account</p>
-      <div class="err-box" id="si-err"></div>
-      <div class="field"><input type="email"    id="si-email" placeholder="email@email.com" autocomplete="email"/></div>
-      <div class="field"><input type="password" id="si-pass"  placeholder="password" autocomplete="current-password"/></div>
-      <button class="btn-primary" id="btn-signin">Sign In</button>
-      <div class="auth-links stack">
-        <span><a id="go-forgot">Forgot your password?</a></span>
-        <span>Don't have an account? <a id="go-signup">Sign up!</a></span>
+
+      <div class="err-box" id="si-err" role="alert">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--error)" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+        <span id="si-err-text"></span>
+      </div>
+
+      <div class="field">
+        <label for="si-email">Email</label>
+        <input type="email" id="si-email" placeholder="name@company.com" autocomplete="email" tabindex="1"/>
+      </div>
+
+      <div class="field" style="margin-bottom:.4rem;">
+        <label for="si-pass">Password</label>
+        <input type="password" id="si-pass" placeholder="Enter your password" autocomplete="current-password" tabindex="2"/>
+        <button class="toggle-pw" id="toggle-si-pass" type="button" aria-label="Show password" tabindex="-1">
+          <svg id="eye-icon-si" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="extras-row">
+        <label class="remember-me">
+          <input type="checkbox" id="si-remember" tabindex="-1"/>
+          Remember me
+        </label>
+        <a class="forgot-link" id="go-forgot" role="button" tabindex="3">Forgot password?</a>
+      </div>
+
+      <button class="btn-primary" id="btn-signin" tabindex="4">
+        <div class="spinner" id="si-spinner" aria-hidden="true"></div>
+        <span id="si-btn-text">Sign In</span>
+      </button>
+
+      <div class="auth-links">
+        Don't have an account? <a id="go-signup" tabindex="5">Sign up</a>
       </div>
     </div>
-    <div class="auth-right">
+
+    <div class="auth-right" aria-hidden="true">
       <div class="brand-block">
         <span class="brand-cluster">CLUSTER</span>
         <span class="brand-trainer">TRAINER</span>
@@ -205,19 +320,51 @@
   </div>
 </div>
 
-<!-- SIGN UP -->
+<!-- ════ SIGN UP ════ -->
 <div id="page-signup" class="hidden">
   <div class="auth-layout">
     <div class="auth-left">
-      <h1 class="auth-heading">Get started!</h1>
-      <p class="auth-sub">Create your account</p>
-      <div class="err-box" id="su-err"></div>
-      <div class="field"><input type="email"    id="su-email" placeholder="email@email.com" autocomplete="email"/></div>
-      <div class="field"><input type="password" id="su-pass"  placeholder="password (min. 6 characters)" autocomplete="new-password"/></div>
-      <button class="btn-primary" id="btn-signup">Sign Up</button>
-      <div class="auth-links">Already have an account? <a id="go-signin">Sign in!</a></div>
+      <h1 class="auth-heading">Get started</h1>
+      <p class="auth-sub">Create your free account</p>
+
+      <div class="err-box" id="su-err" role="alert">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--error)" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+        <span id="su-err-text"></span>
+      </div>
+
+      <div class="field">
+        <label for="su-email">Email</label>
+        <input type="email" id="su-email" placeholder="name@company.com" autocomplete="email" tabindex="1"/>
+      </div>
+
+      <div class="field" style="margin-bottom:.5rem;">
+        <label for="su-pass">Password</label>
+        <input type="password" id="su-pass" placeholder="Min. 6 characters" autocomplete="new-password" tabindex="2"/>
+        <button class="toggle-pw" id="toggle-su-pass" type="button" aria-label="Show password" tabindex="-1">
+          <svg id="eye-icon-su" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <div style="margin-bottom:1.1rem;animation:fadeUp .4s .14s ease both;">
+        <div class="strength-bars">
+          <div id="s1"></div><div id="s2"></div><div id="s3"></div><div id="s4"></div>
+        </div>
+        <span id="strength-label"></span>
+      </div>
+
+      <button class="btn-primary" id="btn-signup" tabindex="3">
+        <div class="spinner" id="su-spinner" aria-hidden="true"></div>
+        <span id="su-btn-text">Create Account</span>
+      </button>
+
+      <div class="auth-links">
+        Already have an account? <a id="go-signin" tabindex="4">Sign in</a>
+      </div>
     </div>
-    <div class="auth-right">
+
+    <div class="auth-right" aria-hidden="true">
       <div class="brand-block">
         <span class="brand-cluster">CLUSTER</span>
         <span class="brand-trainer">TRAINER</span>
@@ -226,18 +373,34 @@
   </div>
 </div>
 
-<!-- FORGOT PASSWORD -->
+<!-- ════ FORGOT PASSWORD ════ -->
 <div id="page-forgot" class="hidden">
   <div class="auth-layout">
     <div class="auth-left">
-      <h1 class="auth-heading">Reset Password</h1>
-      <p class="auth-sub">Enter your email for a reset link</p>
-      <div class="err-box" id="fp-err"></div>
-      <div class="field"><input type="email" id="fp-email" placeholder="email@email.com" autocomplete="email"/></div>
-      <button class="btn-primary" id="btn-forgot">Send Reset Link</button>
-      <div class="auth-links"><a id="go-signin2">← Back to Sign In</a></div>
+      <h1 class="auth-heading">Reset password</h1>
+      <p class="auth-sub">We'll send a reset link to your email</p>
+
+      <div class="err-box" id="fp-err" role="alert">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="var(--error)" aria-hidden="true"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 3.5a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 018 4.5zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+        <span id="fp-err-text"></span>
+      </div>
+
+      <div class="field">
+        <label for="fp-email">Email</label>
+        <input type="email" id="fp-email" placeholder="name@company.com" autocomplete="email" tabindex="1"/>
+      </div>
+
+      <button class="btn-primary" id="btn-forgot" tabindex="2">
+        <div class="spinner" id="fp-spinner" aria-hidden="true"></div>
+        <span id="fp-btn-text">Send Reset Link</span>
+      </button>
+
+      <div class="auth-links">
+        <a id="go-signin2" tabindex="3">← Back to Sign In</a>
+      </div>
     </div>
-    <div class="auth-right">
+
+    <div class="auth-right" aria-hidden="true">
       <div class="brand-block">
         <span class="brand-cluster">CLUSTER</span>
         <span class="brand-trainer">TRAINER</span>
@@ -248,74 +411,125 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/static/common.js"></script>
-
 <script>
 const PAGES = ['signin','signup','forgot'];
 function show(name) { PAGES.forEach(p => document.getElementById('page-'+p).classList.toggle('hidden', p!==name)); }
-function errMsg(id,msg){ const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); }
-function clrMsg(id)    { const e=document.getElementById(id); e.textContent=''; e.classList.remove('show'); }
-function setBtn(id,busy,lbl){ const b=document.getElementById(id); b.disabled=busy; b.textContent=busy?'Please wait…':lbl; }
 
-// SIGN IN
-document.getElementById('btn-signin').onclick = async () => {
-  clrMsg('si-err');
-  const email=document.getElementById('si-email').value.trim(), pass=document.getElementById('si-pass').value;
-  if(!email||!pass) return errMsg('si-err','Please fill in all fields.');
-  setBtn('btn-signin',true,'Sign In');
-  const {error} = await sb.auth.signInWithPassword({email,password:pass});
-  setBtn('btn-signin',false,'Sign In');
-  if(error) return errMsg('si-err',error.message);
-  window.location.href='/app/dashboard.html';
-};
+function errMsg(boxId, textId, msg, isSuccess=false) {
+  const box = document.getElementById(boxId);
+  document.getElementById(textId).textContent = msg;
+  box.style.cssText = isSuccess
+    ? 'display:flex;color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)'
+    : '';
+  box.classList.add('show');
+}
+function clrMsg(boxId) {
+  const b = document.getElementById(boxId);
+  b.classList.remove('show');
+  b.style.cssText = '';
+}
+function setBtn(btnId, spinnerId, textId, busy, label) {
+  document.getElementById(btnId).disabled = busy;
+  document.getElementById(spinnerId).style.display = busy ? 'block' : 'none';
+  document.getElementById(textId).textContent = busy ? 'Please wait…' : label;
+}
 
-document.getElementById('si-pass').addEventListener('keydown', e => {
-  if(e.key==='Enter') document.getElementById('btn-signin').click();
+/* password toggle */
+function makeToggle(btnId, inputId, iconId) {
+  const EYE_OPEN  = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  const EYE_CLOSE = `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+  let vis = false;
+  document.getElementById(btnId).addEventListener('click', () => {
+    vis = !vis;
+    document.getElementById(inputId).type = vis ? 'text' : 'password';
+    document.getElementById(iconId).innerHTML = vis ? EYE_CLOSE : EYE_OPEN;
+  });
+}
+makeToggle('toggle-si-pass','si-pass','eye-icon-si');
+makeToggle('toggle-su-pass','su-pass','eye-icon-su');
+
+/* password strength */
+document.getElementById('su-pass').addEventListener('input', function() {
+  const v = this.value;
+  let score = 0;
+  if(v.length >= 6) score++;
+  if(v.length >= 10) score++;
+  if(/[A-Z]/.test(v) && /[0-9]/.test(v)) score++;
+  if(/[^a-zA-Z0-9]/.test(v)) score++;
+  const colors = ['','#f87171','#fb923c','#facc15','#4ade80'];
+  const labels = ['','Weak','Fair','Good','Strong'];
+  ['s1','s2','s3','s4'].forEach((id,i) => {
+    document.getElementById(id).style.background = i < score ? colors[score] : 'var(--border)';
+  });
+  const lbl = document.getElementById('strength-label');
+  lbl.textContent = v.length ? labels[score] : '';
+  lbl.style.color = colors[score] || 'var(--muted)';
 });
 
-// SIGN UP
-document.getElementById('btn-signup').onclick = async () => {
-  clrMsg('su-err');
-  const email=document.getElementById('su-email').value.trim(), pass=document.getElementById('su-pass').value;
-  if(!email||!pass) return errMsg('su-err','Please fill in all fields.');
-  if(pass.length<6) return errMsg('su-err','Password must be at least 6 characters.');
-  setBtn('btn-signup',true,'Sign Up');
-  const {data,error} = await sb.auth.signUp({email,password:pass});
-  setBtn('btn-signup',false,'Sign Up');
-  if(error) return errMsg('su-err',error.message);
-  if(data.session){
-    window.location.href='/app/dashboard.html';
-  } else {
-    const e=document.getElementById('su-err');
-    e.textContent='✓ Check your email to confirm your account.';
-    e.style.cssText='display:block;color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)';
+/* sign in */
+async function handleSignIn() {
+  clrMsg('si-err');
+  const email = document.getElementById('si-email').value.trim();
+  const pass  = document.getElementById('si-pass').value;
+  if(!email||!pass) return errMsg('si-err','si-err-text','Please fill in all fields.');
+  setBtn('btn-signin','si-spinner','si-btn-text',true,'Sign In');
+  const {error} = await sb.auth.signInWithPassword({email,password:pass});
+  setBtn('btn-signin','si-spinner','si-btn-text',false,'Sign In');
+  if(error){
+    ['si-email','si-pass'].forEach(id=>document.getElementById(id).classList.add('field-error'));
+    return errMsg('si-err','si-err-text',error.message.includes('Invalid')?'Incorrect email or password.':error.message);
   }
-};
+  window.location.href='/app/dashboard.html';
+}
+document.getElementById('btn-signin').addEventListener('click',handleSignIn);
+document.getElementById('si-pass').addEventListener('keydown',e=>{if(e.key==='Enter')handleSignIn();});
+document.getElementById('si-email').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('si-pass').focus();});
+['si-email','si-pass'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',function(){this.classList.remove('field-error');clrMsg('si-err');});
+});
 
-// FORGOT PASSWORD
-document.getElementById('btn-forgot').onclick = async () => {
+/* sign up */
+async function handleSignUp() {
+  clrMsg('su-err');
+  const email = document.getElementById('su-email').value.trim();
+  const pass  = document.getElementById('su-pass').value;
+  if(!email||!pass) return errMsg('su-err','su-err-text','Please fill in all fields.');
+  if(pass.length<6)  return errMsg('su-err','su-err-text','Password must be at least 6 characters.');
+  setBtn('btn-signup','su-spinner','su-btn-text',true,'Create Account');
+  const {data,error} = await sb.auth.signUp({email,password:pass});
+  setBtn('btn-signup','su-spinner','su-btn-text',false,'Create Account');
+  if(error) return errMsg('su-err','su-err-text',error.message);
+  if(data.session){window.location.href='/app/dashboard.html';}
+  else errMsg('su-err','su-err-text','✓ Check your email to confirm your account.',true);
+}
+document.getElementById('btn-signup').addEventListener('click',handleSignUp);
+document.getElementById('su-pass').addEventListener('keydown',e=>{if(e.key==='Enter')handleSignUp();});
+
+/* forgot */
+async function handleForgot() {
   clrMsg('fp-err');
-  const email=document.getElementById('fp-email').value.trim();
-  if(!email) return errMsg('fp-err','Please enter your email.');
-  setBtn('btn-forgot',true,'Send Reset Link');
+  const email = document.getElementById('fp-email').value.trim();
+  if(!email) return errMsg('fp-err','fp-err-text','Please enter your email address.');
+  setBtn('btn-forgot','fp-spinner','fp-btn-text',true,'Send Reset Link');
   const {error} = await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/app/'});
-  setBtn('btn-forgot',false,'Send Reset Link');
-  if(error) return errMsg('fp-err',error.message);
-  const e=document.getElementById('fp-err');
-  e.textContent='✓ Reset link sent — check your inbox.';
-  e.style.cssText='display:block;color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.08)';
-};
+  setBtn('btn-forgot','fp-spinner','fp-btn-text',false,'Send Reset Link');
+  if(error) return errMsg('fp-err','fp-err-text',error.message);
+  errMsg('fp-err','fp-err-text','✓ Reset link sent — check your inbox.',true);
+}
+document.getElementById('btn-forgot').addEventListener('click',handleForgot);
+document.getElementById('fp-email').addEventListener('keydown',e=>{if(e.key==='Enter')handleForgot();});
 
-// Navigation
-document.getElementById('go-signup').onclick  = ()=>show('signup');
-document.getElementById('go-signin').onclick  = ()=>show('signin');
-document.getElementById('go-forgot').onclick  = ()=>show('forgot');
-document.getElementById('go-signin2').onclick = ()=>show('signin');
+/* nav */
+document.getElementById('go-signup').addEventListener('click',()=>show('signup'));
+document.getElementById('go-signin').addEventListener('click',()=>show('signin'));
+document.getElementById('go-forgot').addEventListener('click',()=>show('forgot'));
+document.getElementById('go-signin2').addEventListener('click',()=>show('signin'));
 
-// Auto-redirect if already logged in
+/* auto redirect */
 (async()=>{
-  if(typeof sb !== 'undefined'){
-    const {data:{session}} = await sb.auth.getSession();
-    if(session) window.location.href='/app/dashboard.html';
+  if(typeof sb!=='undefined'){
+    const {data:{session}}=await sb.auth.getSession();
+    if(session)window.location.href='/app/dashboard.html';
   }
 })();
 </script>
