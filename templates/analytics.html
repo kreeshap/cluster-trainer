@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Mistake Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    :root {
+      --bg:        #0b1f1f;
+      --panel:     #112929;
+      --card:      #132f2f;
+      --lift:      #1a3a3a;
+      --input:     #1a3636;
+      --border:    #1e4040;
+      --border2:   #245050;
+      --border3:   #2e6060;
+      --cyan:      #00c2e0;
+      --cyan2:     #0099b3;
+      --cyan-glow: rgba(0,194,224,.12);
+      --text:      #f0fafa;
+      --muted:     #6a9898;
+      --muted2:    #3e6060;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      background: var(--bg);
+      font-family: 'Barlow', sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    @keyframes fadeUp      { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideRight  { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes spin        { to{transform:rotate(360deg)} }
+    @keyframes blink       { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 58px; background: rgba(11,31,31,.95);
+      border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
+      display: flex; align-items: center; padding: 0 28px; flex-shrink: 0;
+    }
+    .brand {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 1.1rem; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text); margin-right: 40px; white-space: nowrap;
+    }
+    .brand em { color: var(--cyan); font-style: normal; }
+    .nav { display: flex; gap: 2px; flex: 1; }
+    .nav a {
+      font-family: 'Barlow', sans-serif;
+      font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted); padding: 6px 14px; border-radius: 5px;
+      text-decoration: none; transition: color .15s, background .15s;
+    }
+    .nav a:hover  { color: var(--text); background: rgba(255,255,255,.04); }
+    .nav a.active { color: var(--cyan); background: var(--cyan-glow); }
+    .topbar-r { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .user-chip { font-family: 'Barlow', sans-serif; font-size: .78rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+    .btn-icon {
+      background: none; border: 1px solid var(--border2); border-radius: 5px;
+      color: var(--muted); cursor: pointer; padding: 5px 7px;
+      display: flex; align-items: center; transition: color .15s, border-color .15s;
+    }
+    .btn-icon:hover { color: var(--text); border-color: var(--cyan); }
+    .btn-out {
+      font-family: 'Barlow', sans-serif;
+      font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      background: none; border: 1px solid var(--border2); color: var(--muted);
+      border-radius: 5px; padding: 5px 14px; cursor: pointer; transition: color .15s, border-color .15s;
+    }
+    .btn-out:hover { color: var(--text); border-color: var(--cyan); }
+
+    /* ── FIXED LAYOUT ── */
+    .app-body {
+      position: fixed; top: 58px; left: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column; z-index: 1;
+    }
+
+    /* ── HEADER STRIP ── */
+    .header-strip {
+      background: var(--panel); border-bottom: 1px solid var(--border);
+      padding: 16px 28px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0;
+      animation: fadeUp .3s ease both;
+    }
+    .hs-left { display: flex; flex-direction: column; gap: 4px; }
+    .hs-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 1.7rem; letter-spacing: .04em;
+      text-transform: uppercase; line-height: 1;
+    }
+    .hs-title em { color: var(--red); font-style: normal; }
+    .hs-sub { font-size: .76rem; color: var(--muted); }
+
+    .stats-row { display: flex; gap: 0; }
+    .stat-box { padding: 0 20px; border-right: 1px solid var(--border); text-align: center; }
+    .stat-box:first-child { padding-left: 0; }
+    .stat-box:last-child  { border-right: none; padding-right: 0; }
+    .stat-val {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 1.8rem; line-height: 1;
+    }
+    .stat-val.red   { color: var(--red); }
+    .stat-val.green { color: var(--green); }
+    .stat-val.amber { color: var(--amber); }
+    .stat-val.white { color: var(--text); }
+    .stat-lbl {
+      font-family: 'Barlow', sans-serif;
+      font-size: .62rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em; margin-top: 4px;
+    }
+
+    /* ── FILTER STRIP ── */
+    .filter-strip {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 10px 28px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .filter-label {
+      font-family: 'Barlow', sans-serif;
+      font-size: .68rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--muted); margin-right: 4px;
+    }
+    .fchip {
+      font-family: 'Barlow', sans-serif;
+      font-size: .72rem; font-weight: 600; padding: 4px 12px; border-radius: 20px;
+      border: 1.5px solid var(--border2); color: var(--muted); cursor: pointer;
+      transition: all .15s; user-select: none;
+    }
+    .fchip:hover { border-color: var(--cyan); color: var(--text); }
+    .fchip.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-glow); }
+
+    /* ── SPLIT PANEL ── */
+    .split { display: flex; flex: 1; overflow: hidden; }
+
+    /* LEFT LIST */
+    .list-panel {
+      width: 340px; min-width: 280px; border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    }
+    .list-scroll { flex: 1; overflow-y: auto; padding: 12px; }
+    .list-scroll::-webkit-scrollbar { width: 3px; }
+    .list-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .mistake-item {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; cursor: pointer; transition: all .15s;
+      margin-bottom: 6px; position: relative;
+    }
+    .mistake-item:hover   { border-color: var(--border3); background: rgba(0,194,224,.03); }
+    .mistake-item.active  { border-color: var(--cyan); background: var(--cyan-glow); }
+    .mistake-item.corrected { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.04); }
+    .mistake-item.bookmarked::after {
+      content: ''; position: absolute; top: 10px; right: 10px;
+      width: 5px; height: 5px; border-radius: 50%; background: var(--amber);
+    }
+    .mi-kpi {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .64rem; font-weight: 500; text-transform: uppercase;
+      letter-spacing: .08em; color: var(--red); margin-bottom: 5px;
+    }
+    .mi-kpi.corrected { color: var(--green); }
+    .mi-q {
+      font-size: .8rem; color: var(--muted); line-height: 1.45;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .mi-meta {
+      display: flex; justify-content: space-between; margin-top: 7px;
+      font-size: .64rem; color: var(--muted2);
+    }
+    .diff-badge {
+      font-family: 'Barlow', sans-serif;
+      font-size: .6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .06em; padding: 2px 7px; border-radius: 4px;
+    }
+    .diff-badge.easy   { background: rgba(34,197,94,.1);  color: #4ade80; }
+    .diff-badge.medium { background: rgba(245,158,11,.1); color: #fbbf24; }
+    .diff-badge.hard   { background: rgba(239,68,68,.1);  color: #f87171; }
+
+    /* RIGHT DETAIL */
+    .detail-panel { flex: 1; overflow-y: auto; padding: 28px 32px; background: var(--bg); }
+    .detail-panel::-webkit-scrollbar { width: 3px; }
+    .detail-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 60vh; gap: 14px; text-align: center;
+    }
+    .empty-icon {
+      width: 60px; height: 60px; border: 1px solid var(--border2); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .empty-cross { font-size: 1.5rem; color: var(--muted); animation: blink 2.5s ease-in-out infinite; }
+    .empty-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700; font-size: 1.2rem; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .empty-sub { font-size: .8rem; color: var(--muted2); max-width: 220px; line-height: 1.6; }
+
+    /* Detail content */
+    .d-cluster {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem; color: var(--cyan); letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 14px; animation: slideRight .25s ease both;
+    }
+    .d-question {
+      font-family: 'Barlow', sans-serif;
+      font-weight: 700; font-size: 1.05rem; line-height: 1.6; margin-bottom: 22px;
+      color: var(--text); animation: slideRight .25s .04s ease both; max-width: 680px;
+    }
+    .answers-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; animation: slideRight .25s .08s ease both; }
+    .answer-opt {
+      padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border);
+      font-size: .86rem; transition: all .2s; cursor: default; max-width: 680px;
+      background: var(--card);
+    }
+    .answer-opt.sw { border-color: rgba(239,68,68,.4);  background: rgba(239,68,68,.07);  color: #f87171; }
+    .answer-opt.ca { border-color: rgba(34,197,94,.4);  background: rgba(34,197,94,.07);  color: #4ade80; }
+    .opt-lbl {
+      font-family: 'Barlow', sans-serif;
+      font-size: .64rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .08em; margin-bottom: 4px; opacity: .75;
+    }
+
+    .exp-box {
+      background: var(--lift); border: 1px solid var(--border2);
+      border-left: 3px solid var(--cyan);
+      border-radius: 10px; padding: 16px; margin-bottom: 22px;
+      max-width: 680px; animation: slideRight .25s .12s ease both;
+    }
+    .exp-lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .65rem; color: var(--cyan); letter-spacing: .12em;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    .exp-text { font-size: .84rem; color: var(--muted); line-height: 1.7; }
+
+    .actions { display: flex; gap: 10px; max-width: 680px; animation: slideRight .25s .16s ease both; }
+    .btn-action {
+      flex: 1; padding: 13px; border-radius: 8px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: .88rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      cursor: pointer; transition: all .18s;
+    }
+    .btn-retry { background: var(--red); border: none; color: #fff; }
+    .btn-retry:hover { background: #dc2626; }
+    .btn-bm { background: none; border: 1px solid var(--border2); color: var(--muted); }
+    .btn-bm:hover { border-color: var(--amber); color: #fbbf24; }
+    .btn-bm.active { border-color: var(--amber); color: #fbbf24; background: rgba(245,158,11,.07); }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border); border-top-color: var(--cyan);
+      border-radius: 50%; animation: spin .75s linear infinite;
+    }
+    .list-empty { padding: 24px 16px; text-align: center; color: var(--muted); font-size: .82rem; line-height: 1.7; }
+
+    @media (max-width: 768px) {
+      .list-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+      .split { flex-direction: column; }
+      .nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">Cluster <em>Trainer</em></div>
+  <nav class="nav">
+    <a href="/app/dashboard.html">Dashboard</a>
+    <a href="/app/practice.html">Practice</a>
+    <a href="/app/analytics.html">Analytics</a>
+    <a class="active" href="/app/review.html">Review</a>
+  </nav>
+  <div class="topbar-r">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-out" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="app-body">
+
+  <!-- HEADER STRIP -->
+  <div class="header-strip">
+    <div class="hs-left">
+      <div class="hs-title">Mistake <em>Lab</em></div>
+      <div class="hs-sub">Review wrong answers. Understand why. Never miss the same thing twice.</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val red"   id="st-wrong">—</div><div class="stat-lbl">To Review</div></div>
+      <div class="stat-box"><div class="stat-val green" id="st-corrected">—</div><div class="stat-lbl">Corrected</div></div>
+      <div class="stat-box"><div class="stat-val amber" id="st-bookmarked">—</div><div class="stat-lbl">Bookmarked</div></div>
+      <div class="stat-box"><div class="stat-val white" id="st-rate">—</div><div class="stat-lbl">Recovery</div></div>
+    </div>
+  </div>
+
+  <!-- FILTER STRIP -->
+  <div class="filter-strip">
+    <div class="filter-label">Filter:</div>
+    <div id="topic-filters" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+
+  <!-- SPLIT PANEL -->
+  <div class="split">
+
+    <div class="list-panel">
+      <div class="list-scroll" id="mistake-list">
+        <div style="display:flex;justify-content:center;padding:32px">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="detail-panel">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon"><div class="empty-cross">✕</div></div>
+        <div class="empty-title">Select a question</div>
+        <div class="empty-sub">Click any item on the left to review the question, correct answer, and explanation.</div>
+      </div>
+      <div id="detail-content" style="display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/common.js"></script>
+<script>
+(async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  initTopbar(user);
+  document.getElementById('btn-settings').onclick = () => location.href = '/app/settings.html';
+
+  const BK = 'ct_bookmarks_' + user.id;
+  const CK = 'ct_corrected_' + user.id;
+  let bookmarks = new Set(JSON.parse(localStorage.getItem(BK) || '[]'));
+  let corrected  = new Set(JSON.parse(localStorage.getItem(CK) || '[]'));
+  const saveBM   = () => localStorage.setItem(BK, JSON.stringify([...bookmarks]));
+
+  const [{ data: hist }, { data: allQs }] = await Promise.all([
+    sb.from('quiz_history')
+      .select('question_id, kpi_code, cluster, is_correct, selected_answer, created_at')
+      .eq('user_id', user.id).order('created_at', { ascending: false }),
+    sb.from('questions')
+      .select('id, text, options, correct, explanation, kpi_code, cluster, difficulty')
+  ]);
+  const rows = hist || [], qs = allQs || [];
+
+  // Latest attempt per question
+  const la = {};
+  rows.forEach(r => { if (!la[r.question_id]) la[r.question_id] = r; });
+  const toReview = Object.entries(la)
+    .filter(([, r]) => !r.is_correct)
+    .map(([qid, r]) => ({ qid, r, q: qs.find(q => q.id === qid) }))
+    .filter(i => i.q);
+
+  document.getElementById('st-wrong').textContent      = toReview.length;
+  document.getElementById('st-corrected').textContent  = corrected.size;
+  document.getElementById('st-bookmarked').textContent = bookmarks.size;
+  const rate = (toReview.length + corrected.size) > 0
+    ? Math.round(corrected.size / (toReview.length + corrected.size) * 100) : 0;
+  document.getElementById('st-rate').textContent = rate + '%';
+
+  // Filters
+  const topics = [...new Set(toReview.map(i => i.r.kpi_code?.split('-')[0] || 'General').filter(Boolean))];
+  const filterEl = document.getElementById('topic-filters');
+  let activeFilter = 'all';
+
+  const allChip = document.createElement('div');
+  allChip.className = 'fchip active'; allChip.textContent = 'All'; allChip.dataset.val = 'all';
+  filterEl.appendChild(allChip);
+  topics.slice(0, 6).forEach(t => {
+    const c = document.createElement('div');
+    c.className = 'fchip'; c.textContent = t; c.dataset.val = t;
+    filterEl.appendChild(c);
+  });
+  filterEl.querySelectorAll('.fchip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      filterEl.querySelectorAll('.fchip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFilter = chip.dataset.val;
+      renderList();
+    });
+  });
+
+  let selectedQid = null;
+  const listEl = document.getElementById('mistake-list');
+
+  function renderList() {
+    const filtered = activeFilter === 'all'
+      ? toReview
+      : toReview.filter(i => (i.r.kpi_code?.split('-')[0] || 'General') === activeFilter);
+
+    if (!filtered.length) {
+      listEl.innerHTML = '<div class="list-empty">No mistakes here.<br>Great work!</div>';
+      return;
+    }
+    listEl.innerHTML = '';
+    filtered.forEach(item => {
+      const { qid, r, q } = item;
+      const isCorrected  = corrected.has(qid);
+      const isBookmarked = bookmarks.has(qid);
+      const diff = q.difficulty || 'medium';
+      const div  = document.createElement('div');
+      div.className = 'mistake-item'
+        + (isCorrected  ? ' corrected'  : '')
+        + (isBookmarked ? ' bookmarked' : '')
+        + (qid === selectedQid ? ' active' : '');
+      div.innerHTML = `
+        <div class="mi-kpi ${isCorrected ? 'corrected' : ''}">
+          ${isCorrected ? '✓ Corrected' : '✕ Incorrect'} · ${r.kpi_code || '—'}
+        </div>
+        <div class="mi-q">${q.text || '—'}</div>
+        <div class="mi-meta">
+          <span>${r.cluster || '—'}</span>
+          <span class="diff-badge ${diff}">${diff}</span>
+        </div>`;
+      div.addEventListener('click', () => {
+        selectedQid = qid;
+        listEl.querySelectorAll('.mistake-item').forEach(d => d.classList.remove('active'));
+        div.classList.add('active');
+        showDetail(item);
+      });
+      listEl.appendChild(div);
+    });
+  }
+
+  if (!toReview.length) {
+    listEl.innerHTML = '<div class="list-empty">No mistakes yet.<br>Keep practising to see<br>your wrong answers here.</div>';
+  } else {
+    renderList();
+  }
+
+  function showDetail({ qid, r, q }) {
+    document.getElementById('empty-state').style.display = 'none';
+    const dc = document.getElementById('detail-content');
+    dc.style.display = 'block';
+
+    let opts = q.options;
+    if (typeof opts === 'string') { try { opts = JSON.parse(opts); } catch { opts = {}; } }
+
+    const answersHtml = opts && typeof opts === 'object'
+      ? Object.entries(opts).map(([key, val]) => {
+          const isSel  = r.selected_answer?.toUpperCase() === key.toUpperCase();
+          const isCorr = q.correct?.toUpperCase() === key.toUpperCase();
+          const cls    = isSel && !isCorr ? 'sw' : isCorr ? 'ca' : '';
+          return `<div class="answer-opt ${cls}">
+            <div class="opt-lbl">${isSel ? 'Your answer' : ''} ${isCorr ? 'Correct answer' : ''}</div>
+            ${key.toUpperCase()}. ${val}
+          </div>`;
+        }).join('')
+      : `<div class="answer-opt ca"><div class="opt-lbl">Correct Answer</div>${q.correct || '—'}</div>`;
+
+    const isBM   = bookmarks.has(qid);
+    const isCorr = corrected.has(qid);
+
+    dc.innerHTML = `
+      <div class="d-cluster">${r.cluster || '—'} · ${r.kpi_code || '—'} · <span style="color:var(--muted)">${q.difficulty || 'medium'}</span></div>
+      <div class="d-question">${q.text || '—'}</div>
+      <div class="answers-grid">${answersHtml}</div>
+      <div class="exp-box">
+        <div class="exp-lbl">Explanation</div>
+        <div class="exp-text">${q.explanation || 'No explanation available.'}</div>
+      </div>
+      <div class="actions">
+        <button class="btn-action btn-retry" id="btn-retry">Retry This Question</button>
+        <button class="btn-action btn-bm ${isBM ? 'active' : ''}" id="btn-bm">${isBM ? '★ Bookmarked' : '☆ Bookmark'}</button>
+      </div>`;
+
+    document.getElementById('btn-bm').onclick = function () {
+      if (bookmarks.has(qid)) {
+        bookmarks.delete(qid);
+        this.textContent = '☆ Bookmark';
+        this.classList.remove('active');
+      } else {
+        bookmarks.add(qid);
+        this.textContent = '★ Bookmarked';
+        this.classList.add('active');
+      }
+      saveBM();
+      document.getElementById('st-bookmarked').textContent = bookmarks.size;
+      renderList();
+    };
+
+    document.getElementById('btn-retry').onclick = () => {
+      if (!corrected.has(qid)) {
+        corrected.add(qid);
+        localStorage.setItem(CK, JSON.stringify([...corrected]));
+        document.getElementById('st-corrected').textContent = corrected.size;
+        const nr = Math.round(corrected.size / (toReview.length + corrected.size) * 100);
+        document.getElementById('st-rate').textContent = nr + '%';
+        const active = listEl.querySelector('.mistake-item.active');
+        if (active) active.classList.add('corrected');
+      }
+      if (typeof Store !== 'undefined') {
+        Store.set('retry_question_id', qid);
+        Store.set('cluster', r.cluster || '');
+      }
+      window.location.href = '/app/selector.html?retry=1';
+    };
+  }
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Practice Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    :root {
+      --bg:        #0b1f1f;
+      --panel:     #112929;
+      --card:      #132f2f;
+      --lift:      #1a3a3a;
+      --input:     #1a3636;
+      --border:    #1e4040;
+      --border2:   #245050;
+      --border3:   #2e6060;
+      --cyan:      #00c2e0;
+      --cyan2:     #0099b3;
+      --cyan-glow: rgba(0,194,224,.12);
+      --text:      #f0fafa;
+      --muted:     #6a9898;
+      --muted2:    #3e6060;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --amber:     #f59e0b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      background: var(--bg);
+      font-family: 'Barlow', sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+      padding-top: 58px;
+    }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin   { to{transform:rotate(360deg)} }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 58px; background: rgba(11,31,31,.95);
+      border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
+      display: flex; align-items: center; padding: 0 28px;
+    }
+    .brand {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 1.1rem; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--text); margin-right: 40px; white-space: nowrap;
+    }
+    .brand em { color: var(--cyan); font-style: normal; }
+    .nav { display: flex; gap: 2px; flex: 1; }
+    .nav a {
+      font-family: 'Barlow', sans-serif;
+      font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--muted); padding: 6px 14px; border-radius: 5px;
+      text-decoration: none; transition: color .15s, background .15s;
+    }
+    .nav a:hover  { color: var(--text); background: rgba(255,255,255,.04); }
+    .nav a.active { color: var(--cyan); background: var(--cyan-glow); }
+    .topbar-r { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .user-chip { font-family: 'Barlow', sans-serif; font-size: .78rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; }
+    .btn-icon {
+      background: none; border: 1px solid var(--border2); border-radius: 5px;
+      color: var(--muted); cursor: pointer; padding: 5px 7px;
+      display: flex; align-items: center; transition: color .15s, border-color .15s;
+    }
+    .btn-icon:hover { color: var(--text); border-color: var(--cyan); }
+    .btn-out {
+      font-family: 'Barlow', sans-serif;
+      font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      background: none; border: 1px solid var(--border2); color: var(--muted);
+      border-radius: 5px; padding: 5px 14px; cursor: pointer; transition: color .15s, border-color .15s;
+    }
+    .btn-out:hover { color: var(--text); border-color: var(--cyan); }
+
+    /* ── LAYOUT ── */
+    .wrap { padding: 28px 32px 60px; max-width: 1320px; margin: 0 auto; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 22px; position: relative; overflow: hidden;
+      transition: border-color .2s;
+    }
+    .card:hover { border-color: var(--border2); }
+    .sec-lbl {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700; font-size: .75rem; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 14px;
+    }
+
+    /* ── PAGE HEADER ── */
+    .page-header { margin-bottom: 24px; animation: fadeUp .35s ease both; }
+    .page-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .62rem; letter-spacing: .22em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .page-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 2.4rem; letter-spacing: .02em; line-height: 1;
+    }
+    .page-title em { color: var(--cyan); font-style: normal; }
+    .page-sub { color: var(--muted); font-size: .88rem; margin-top: 6px; }
+
+    /* ── MODE CARDS ── */
+    .mode-grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 14px; margin-bottom: 20px;
+      animation: fadeUp .35s .06s ease both;
+    }
+    .mode-card {
+      background: var(--panel); border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 26px 22px; cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color .2s, transform .2s, background .2s, box-shadow .2s;
+      user-select: none;
+    }
+    .mode-card::before {
+      content: ''; position: absolute; top: -50px; right: -50px;
+      width: 160px; height: 160px; border-radius: 50%; pointer-events: none; opacity: .55;
+    }
+    .m-continue::before { background: radial-gradient(circle, rgba(0,194,224,.18) 0%, transparent 65%); }
+    .m-exam::before     { background: radial-gradient(circle, rgba(245,158,11,.14) 0%, transparent 65%); }
+    .m-adaptive::before { background: radial-gradient(circle, rgba(34,197,94,.14)  0%, transparent 65%); }
+
+    .mode-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.3); }
+    .m-continue:hover { border-color: var(--cyan);  background: rgba(0,194,224,.04); }
+    .m-exam:hover     { border-color: var(--amber); background: rgba(245,158,11,.04); }
+    .m-adaptive:hover { border-color: var(--green); background: rgba(34,197,94,.04); }
+
+    .m-continue.selected { border-color: var(--cyan);  background: rgba(0,194,224,.05);  box-shadow: 0 0 0 1px var(--cyan); }
+    .m-exam.selected     { border-color: var(--amber); background: rgba(245,158,11,.05); box-shadow: 0 0 0 1px var(--amber); }
+    .m-adaptive.selected { border-color: var(--green); background: rgba(34,197,94,.05);  box-shadow: 0 0 0 1px var(--green); }
+
+    .sel-badge {
+      position: absolute; top: 12px; left: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .58rem; letter-spacing: .1em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 3px; display: none;
+    }
+    .m-continue .sel-badge { background: rgba(0,194,224,.15);  color: var(--cyan); }
+    .m-exam .sel-badge     { background: rgba(245,158,11,.15); color: #fbbf24; }
+    .m-adaptive .sel-badge { background: rgba(34,197,94,.15);  color: #4ade80; }
+    .mode-card.selected .sel-badge { display: block; }
+
+    .mode-num {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 900;
+      font-size: 4.5rem; line-height: 1; opacity: .06;
+      position: absolute; top: 14px; right: 18px; pointer-events: none;
+    }
+    .m-continue .mode-num { color: var(--cyan); }
+    .m-exam .mode-num     { color: var(--amber); }
+    .m-adaptive .mode-num { color: var(--green); }
+
+    .mode-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; font-size: 1.1rem;
+    }
+    .m-continue .mode-icon { background: rgba(0,194,224,.1);  border: 1px solid rgba(0,194,224,.2); }
+    .m-exam .mode-icon     { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.2); }
+    .m-adaptive .mode-icon { background: rgba(34,197,94,.1);  border: 1px solid rgba(34,197,94,.2); }
+
+    .mode-accent { height: 2px; border-radius: 2px; width: 22px; margin-bottom: 14px; transition: width .22s; }
+    .mode-card:hover .mode-accent, .mode-card.selected .mode-accent { width: 46px; }
+    .m-continue .mode-accent { background: var(--cyan); }
+    .m-exam .mode-accent     { background: var(--amber); }
+    .m-adaptive .mode-accent { background: var(--green); }
+
+    .mode-name {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+      font-size: 1.3rem; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 7px;
+    }
+    .m-continue .mode-name { color: var(--cyan); }
+    .m-exam .mode-name     { color: #fbbf24; }
+    .m-adaptive .mode-name { color: #4ade80; }
+
+    .mode-desc { font-size: .8rem; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .mode-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .62rem; letter-spacing: .08em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 4px; display: inline-block;
+    }
+    .m-continue .mode-tag { background: rgba(0,194,224,.1);  color: var(--cyan); }
+    .m-exam .mode-tag     { background: rgba(245,158,11,.1); color: #fbbf24; }
+    .m-adaptive .mode-tag { background: rgba(34,197,94,.1);  color: #4ade80; }
+
+    /* ── CONTENT AREA ── */
+    .content-area {
+      display: grid; grid-template-columns: 1fr 320px;
+      gap: 14px; margin-bottom: 20px;
+      animation: fadeUp .35s .12s ease both;
+    }
+
+    .filter-section { margin-bottom: 20px; }
+    .filter-section:last-child { margin-bottom: 0; }
+    .filter-label {
+      font-family: 'Barlow', sans-serif;
+      font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .select-wrap { position: relative; }
+    .cluster-select {
+      width: 100%; background: var(--input); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 11px 14px; color: var(--text);
+      font-family: 'Barlow', sans-serif; font-size: .9rem;
+      outline: none; transition: border-color .2s; cursor: pointer; appearance: none;
+    }
+    .cluster-select:focus { border-color: var(--cyan); }
+    .select-wrap::after {
+      content: ''; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-top: 6px solid var(--muted); pointer-events: none;
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .pill {
+      font-family: 'Barlow', sans-serif;
+      font-size: .76rem; font-weight: 600; padding: 5px 14px; border-radius: 20px;
+      border: 1.5px solid var(--border2); color: var(--muted); cursor: pointer;
+      transition: border-color .15s, color .15s, background .15s; user-select: none;
+    }
+    .pill:hover  { border-color: var(--cyan); color: var(--text); }
+    .pill.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-glow); }
+
+    .suggest-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .suggest-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .suggest-chip {
+      font-family: 'Barlow', sans-serif;
+      font-size: .74rem; font-weight: 600; padding: 5px 12px; border-radius: 6px;
+      border: 1px solid var(--border2); color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: border-color .15s, color .15s;
+    }
+    .suggest-chip:hover { border-color: var(--cyan); color: var(--text); }
+    .chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Stats */
+    .stats-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 22px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .2s;
+    }
+    .stats-card:hover { border-color: var(--border2); }
+    .stat-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; background: var(--input);
+      border-radius: 8px; border: 1px solid var(--border);
+    }
+    .si-label { font-size: .8rem; color: var(--muted); }
+    .si-val {
+      font-family: 'Barlow Condensed', sans-serif; font-weight: 900;
+      font-size: 1.9rem; line-height: 1;
+    }
+
+    /* ── START BUTTON ── */
+    .start-section { animation: fadeUp .35s .18s ease both; }
+    .btn-start {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: 18px 24px;
+      background: var(--cyan); border: none; border-radius: 10px;
+      color: #051a1a; cursor: pointer;
+      transition: background .2s, transform .15s;
+    }
+    .btn-start:hover  { background: var(--cyan2); transform: translateY(-2px); }
+    .btn-start:active { transform: scale(.99); }
+    .btn-start-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.15rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase;
+    }
+    .btn-start-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; opacity: .75;
+    }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid var(--border); border-top-color: var(--cyan);
+      border-radius: 50%; animation: spin .75s linear infinite;
+    }
+
+    @media (max-width: 960px) {
+      .mode-grid { grid-template-columns: 1fr 1fr; }
+      .content-area { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .mode-grid { grid-template-columns: 1fr; }
+      .nav { display: none; }
+      .wrap { padding: 20px 16px 48px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Cluster <em>Trainer</em></div>
+  <nav class="nav">
+    <a href="/app/dashboard.html">Dashboard</a>
+    <a class="active" href="/app/practice.html">Practice</a>
+    <a href="/app/analytics.html">Analytics</a>
+    <a href="/app/review.html">Review</a>
+  </nav>
+  <div class="topbar-r">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-icon" id="btn-settings" title="Settings">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-out" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow">Active Learning</div>
+    <div class="page-title">Practice <em>Lab</em></div>
+    <div class="page-sub">Choose a mode, configure your session, and start drilling.</div>
+  </div>
+
+  <div class="sec-lbl">Select Your Training Mode</div>
+  <div class="mode-grid">
+    <div class="mode-card m-continue selected" id="mc-continue">
+      <div class="sel-badge">✓ Selected</div>
+      <div class="mode-num">01</div>
+      <div class="mode-icon">▶</div>
+      <div class="mode-accent"></div>
+      <div class="mode-name">Continue</div>
+      <div class="mode-desc">Pick up where you left off. Resume your last cluster and maintain momentum with targeted questions.</div>
+      <div class="mode-tag" id="mc-continue-tag">Last session: —</div>
+    </div>
+    <div class="mode-card m-exam" id="mc-exam">
+      <div class="sel-badge">✓ Selected</div>
+      <div class="mode-num">02</div>
+      <div class="mode-icon">⏱</div>
+      <div class="mode-accent"></div>
+      <div class="mode-name">Timed Exam</div>
+      <div class="mode-desc">Real exam conditions. 60 questions, 60 minutes, no hints or pauses. Measure your true readiness.</div>
+      <div class="mode-tag">60 questions · 60 min</div>
+    </div>
+    <div class="mode-card m-adaptive" id="mc-adaptive">
+      <div class="sel-badge">✓ Selected</div>
+      <div class="mode-num">03</div>
+      <div class="mode-icon">◈</div>
+      <div class="mode-accent"></div>
+      <div class="mode-name">Adaptive</div>
+      <div class="mode-desc">AI targets your weakest areas and adjusts difficulty as you improve. The smarter way to prepare.</div>
+      <div class="mode-tag">Personalised to you</div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="card">
+      <div class="sec-lbl" style="margin-bottom:0">Filters</div>
+      <div class="filter-section" style="margin-top:16px">
+        <div class="filter-label">Cluster</div>
+        <div class="select-wrap">
+          <select class="cluster-select" id="filter-cluster">
+            <option value="">All clusters</option>
+          </select>
+        </div>
+        <div class="suggest-section">
+          <div class="filter-label" style="margin-bottom:10px">Suggested — based on your progress</div>
+          <div class="suggest-chips" id="suggest-chips"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Difficulty</div>
+        <div class="pill-row" id="diff-pills">
+          <div class="pill active" data-val="all">All</div>
+          <div class="pill" data-val="easy">Easy</div>
+          <div class="pill" data-val="medium">Medium</div>
+          <div class="pill" data-val="hard">Hard</div>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">Question Count</div>
+        <div class="pill-row" id="count-pills">
+          <div class="pill" data-val="10">10</div>
+          <div class="pill active" data-val="20">20</div>
+          <div class="pill" data-val="40">40</div>
+          <div class="pill" data-val="60">60</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-card">
+      <div class="sec-lbl" style="margin-bottom:4px">Your Stats</div>
+      <div class="stat-item">
+        <div class="si-label">Total Questions</div>
+        <div class="si-val" id="stat-total" style="color:var(--cyan)">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="si-label">Overall Accuracy</div>
+        <div class="si-val" id="stat-acc" style="color:var(--green)">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="si-label">Sessions</div>
+        <div class="si-val" id="stat-sessions" style="color:var(--amber)">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="si-label">Day Streak</div>
+        <div class="si-val" id="stat-streak" style="color:var(--text)">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="start-section">
+    <button class="btn-start" id="btn-start">
+      <span class="btn-start-label">Start Session →</span>
+      <span class="btn-start-sub" id="btn-start-sub">Continue · All difficulty · 20 qs</span>
+    </button>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/common.js"></script>
+<script>
+(async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  initTopbar(user);
+  document.getElementById('btn-settings').onclick = () => location.href = '/app/settings.html';
+
+  const favCluster = user.user_metadata?.favorite_cluster || null;
+
+  const [{ data: allQs }, { data: hist }, { data: clusters }] = await Promise.all([
+    sb.from('questions').select('id, cluster, kpi_code, difficulty'),
+    sb.from('quiz_history').select('question_id, kpi_code, cluster, is_correct, created_at')
+      .eq('user_id', user.id).order('created_at', { ascending: false }),
+    sb.from('clusters').select('*')
+  ]);
+  const qs = allQs || [], rows = hist || [], cls = clusters || [];
+
+  const sel = document.getElementById('filter-cluster');
+  cls.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name || c.id;
+    opt.textContent = c.name || c.id;
+    if (c.name === favCluster) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  const today = new Date();
+  const activeDays = new Set(rows.map(r => r.created_at?.slice(0,10)));
+  let streak = 0;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    if (activeDays.has(d.toISOString().slice(0,10))) streak++;
+    else if (i > 0) break;
+  }
+  const dayMap = {};
+  rows.forEach(r => { const d = r.created_at?.slice(0,10); if (d) dayMap[d] = true; });
+  const acc = rows.length ? Math.round(rows.filter(r => r.is_correct).length / rows.length * 100) : null;
+
+  document.getElementById('stat-total').textContent    = rows.length || '0';
+  document.getElementById('stat-acc').textContent      = acc !== null ? acc + '%' : '—';
+  document.getElementById('stat-sessions').textContent = Object.keys(dayMap).length || '0';
+  document.getElementById('stat-streak').textContent   = streak || '0';
+
+  const lastCluster = rows[0]?.cluster || favCluster;
+  if (lastCluster) document.getElementById('mc-continue-tag').textContent = 'Last: ' + lastCluster;
+
+  const clusterAcc = {};
+  rows.forEach(r => {
+    if (!r.cluster) return;
+    if (!clusterAcc[r.cluster]) clusterAcc[r.cluster] = { c: 0, t: 0 };
+    clusterAcc[r.cluster].t++;
+    if (r.is_correct) clusterAcc[r.cluster].c++;
+  });
+  const suggestions = cls.map(c => {
+    const name = c.name || c.id;
+    const d = clusterAcc[name];
+    const pct = d ? Math.round(d.c / d.t * 100) : null;
+    return { name, pct };
+  }).sort((a, b) => (a.pct ?? 50) - (b.pct ?? 50)).slice(0, 6);
+
+  const suggestEl = document.getElementById('suggest-chips');
+  if (suggestions.length) {
+    suggestEl.innerHTML = suggestions.map(s => {
+      const pct   = s.pct ?? 0;
+      const color = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+      return `<div class="suggest-chip" data-cluster="${s.name}">
+        <div class="chip-dot" style="background:${color}"></div>
+        ${s.name}${s.pct !== null ? ' (' + s.pct + '%)' : ''}
+      </div>`;
+    }).join('');
+    suggestEl.querySelectorAll('.suggest-chip').forEach(chip => {
+      chip.addEventListener('click', () => { sel.value = chip.dataset.cluster; updateBtn(); });
+    });
+  } else {
+    suggestEl.innerHTML = '<div style="color:var(--muted);font-size:.78rem">No clusters found.</div>';
+  }
+
+  let selectedMode = 'continue';
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedMode = card.id.replace('mc-', '');
+      updateBtn();
+    });
+  });
+
+  function setupPills(id) {
+    document.getElementById(id).querySelectorAll('.pill').forEach(p => {
+      p.addEventListener('click', () => {
+        document.getElementById(id).querySelectorAll('.pill').forEach(x => x.className = 'pill');
+        p.classList.add('active');
+        updateBtn();
+      });
+    });
+  }
+  setupPills('diff-pills');
+  setupPills('count-pills');
+
+  function updateBtn() {
+    const cluster = sel.value || lastCluster || 'any cluster';
+    const mode    = selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1);
+    const diff    = document.querySelector('#diff-pills .pill.active')?.dataset.val || 'all';
+    const count   = document.querySelector('#count-pills .pill.active')?.dataset.val || '20';
+    document.getElementById('btn-start-sub').textContent =
+      `${mode} · ${cluster} · ${diff === 'all' ? 'All difficulty' : diff} · ${count} qs`;
+  }
+  updateBtn();
+  sel.addEventListener('change', updateBtn);
+
+  document.getElementById('btn-start').onclick = () => {
+    const cluster = sel.value || lastCluster || favCluster;
+    if (!cluster) { alert('Please select a cluster.'); return; }
+    if (typeof Store !== 'undefined') {
+      Store.set('cluster', cluster);
+      Store.set('quiz_mode', selectedMode);
+    }
+    window.location.href = '/app/selector.html';
+  };
+})();
+</script>
+</body>
+</html>

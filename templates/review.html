@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cluster Trainer — Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    :root {
+      --bg:        #0b1f1f;
+      --panel:     #112929;
+      --card:      #132f2f;
+      --input:     #1a3a3a;
+      --border:    #1e4040;
+      --border2:   #245050;
+      --cyan:      #00c2e0;
+      --cyan-dim:  #008fa3;
+      --cyan-glow: rgba(0,194,224,.15);
+      --white:     #f0fafa;
+      --muted:     #6a9898;
+      --correct:   #22c55e;
+      --wrong:     #ef4444;
+      --warn:      #f59e0b;
+    }
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); font-family:'Barlow',sans-serif; color:var(--white); }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideIn  { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes spin     { to{transform:rotate(360deg)} }
+
+    .topbar { position:fixed;top:0;left:0;right:0;z-index:100;height:58px;background:rgba(11,31,31,.92);border-bottom:1px solid var(--border);backdrop-filter:blur(10px);display:flex;align-items:center;padding:0 32px; }
+    .topbar-brand { font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.15rem;letter-spacing:.06em;color:var(--white);text-transform:uppercase;margin-right:40px;white-space:nowrap; }
+    .topbar-brand span { color:var(--cyan); }
+    .topbar-nav { display:flex;gap:4px;flex:1; }
+    .nav-link { font-size:.82rem;font-weight:600;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;padding:7px 14px;border-radius:6px;cursor:pointer;transition:color .15s,background .15s;text-decoration:none; }
+    .nav-link:hover { color:var(--white);background:rgba(255,255,255,.04); }
+    .nav-link.active { color:var(--cyan);background:var(--cyan-glow); }
+    .topbar-right { display:flex;align-items:center;gap:12px;margin-left:auto; }
+    .user-chip { font-size:.8rem;color:var(--muted);font-weight:600;letter-spacing:.04em; }
+    .btn-sm { font-family:'Barlow',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:none;border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:6px 14px;cursor:pointer;transition:color .15s,border-color .15s; }
+    .btn-sm:hover { color:var(--white);border-color:var(--cyan); }
+
+    .page-wrap { padding:28px 36px 48px;max-width:1280px;margin:0 auto; }
+    .page-header { margin-bottom:24px;animation:fadeUp .35s ease both; }
+    .page-title { font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.4rem;letter-spacing:.02em;line-height:1; }
+    .page-title span { color:var(--wrong); }
+    .page-sub { color:var(--muted);font-size:.9rem;margin-top:6px; }
+
+    .card { background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px; }
+    .section-label { font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:14px; }
+
+    /* ── STATS STRIP ── */
+    .stats-strip { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;animation:fadeUp .35s .06s ease both; }
+    .stat-box { background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 22px; }
+    .stat-val { font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:2.6rem;line-height:1;margin-bottom:4px; }
+    .stat-lbl { font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em; }
+
+    /* ── MAIN LAYOUT ── */
+    .main-grid { display:grid;grid-template-columns:320px 1fr;gap:14px;animation:fadeUp .35s .1s ease both; }
+
+    /* ── LEFT: MISTAKE LIST ── */
+    .list-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+    .list-filter { display:flex;gap:6px;flex-wrap:wrap; }
+    .filter-chip { font-size:.72rem;font-weight:600;padding:4px 12px;border-radius:20px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s,background .15s;user-select:none; }
+    .filter-chip:hover { border-color:var(--cyan);color:var(--white); }
+    .filter-chip.active { border-color:rgba(239,68,68,.5);color:#f87171;background:rgba(239,68,68,.08); }
+
+    .mistake-list { display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 280px);overflow-y:auto;padding-right:4px; }
+    .mistake-list::-webkit-scrollbar { width:4px; }
+    .mistake-list::-webkit-scrollbar-track { background:transparent; }
+    .mistake-list::-webkit-scrollbar-thumb { background:var(--border2);border-radius:2px; }
+
+    .mistake-item {
+      background:var(--panel);border:1px solid var(--border);border-radius:8px;
+      padding:12px 14px;cursor:pointer;transition:border-color .15s,background .15s;
+      position:relative;
+    }
+    .mistake-item:hover { border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04); }
+    .mistake-item.active { border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.06); }
+    .mistake-item.corrected { border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.04); }
+    .mistake-item.bookmarked::after { content:'';position:absolute;top:10px;right:10px;width:6px;height:6px;border-radius:50%;background:var(--warn); }
+
+    .mi-kpi { font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--wrong);margin-bottom:4px; }
+    .mi-kpi.corrected { color:var(--correct); }
+    .mi-question { font-size:.8rem;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+    .mi-meta { display:flex;justify-content:space-between;margin-top:6px;font-size:.65rem;color:var(--muted); }
+    .diff-badge { font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:3px; }
+    .diff-badge.easy   { background:rgba(34,197,94,.12);  color:#4ade80; }
+    .diff-badge.medium { background:rgba(245,158,11,.12); color:#fbbf24; }
+    .diff-badge.hard   { background:rgba(239,68,68,.12);  color:#f87171; }
+
+    /* ── RIGHT: DETAIL PANEL ── */
+    .detail-panel { position:sticky;top:80px; }
+    .empty-state { display:flex;flex-direction:column;align-items:center;justify-content:center;height:320px;color:var(--muted);text-align:center;gap:12px; }
+    .empty-title { font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.3rem;letter-spacing:.04em; }
+    .empty-sub { font-size:.85rem;line-height:1.55;max-width:240px; }
+
+    .q-cluster { font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--wrong);margin-bottom:12px; }
+    .q-text { font-size:1rem;font-weight:600;line-height:1.55;margin-bottom:20px; }
+
+    .answer-grid { display:flex;flex-direction:column;gap:8px;margin-bottom:20px; }
+    .answer-opt {
+      padding:12px 16px;border-radius:8px;border:1.5px solid var(--border);
+      font-size:.88rem;cursor:default;transition:border-color .2s,background .2s;
+    }
+    .answer-opt.selected-wrong { border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08);color:#f87171; }
+    .answer-opt.correct-answer { border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.08);color:#4ade80; }
+    .answer-opt .opt-label { font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;opacity:.7; }
+
+    .explanation-box { background:var(--input);border:1px solid var(--border2);border-radius:10px;padding:16px;margin-bottom:20px; }
+    .exp-label { font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:8px; }
+    .exp-text { font-size:.85rem;color:var(--muted);line-height:1.65; }
+
+    .detail-actions { display:flex;gap:10px; }
+    .btn-action {
+      flex:1;padding:12px;border-radius:8px;font-family:'Barlow',sans-serif;
+      font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      cursor:pointer;transition:background .2s,border-color .2s,transform .15s;
+    }
+    .btn-action:active { transform:scale(.98); }
+    .btn-retry { background:var(--cyan);border:none;color:#051a1a; }
+    .btn-retry:hover { background:var(--cyan-dim); }
+    .btn-bookmark { background:none;border:1.5px solid var(--border2);color:var(--muted); }
+    .btn-bookmark:hover { border-color:var(--warn);color:#fbbf24; }
+    .btn-bookmark.active { border-color:var(--warn);color:#fbbf24;background:rgba(245,158,11,.08); }
+
+    .spinner { width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .8s linear infinite;margin:40px auto;display:block; }
+
+    @media (max-width:900px) { .main-grid{grid-template-columns:1fr;} .stats-strip{grid-template-columns:1fr 1fr;} .topbar-nav{display:none;} .page-wrap{padding:18px 16px 40px;} }
+    @media (max-width:480px) { .stats-strip{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body style="padding-top:58px">
+
+<div class="topbar">
+  <div class="topbar-brand">CLUSTER <span>TRAINER</span></div>
+  <nav class="topbar-nav">
+    <a class="nav-link" href="/app/dashboard.html">Dashboard</a>
+    <a class="nav-link" href="/app/practice.html">Practice</a>
+    <a class="nav-link" href="/app/analytics.html">Analytics</a>
+    <a class="nav-link active" href="/app/review.html">Review</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="user-chip" id="topbar-name"></div>
+    <button class="btn-sm" id="btn-logout">Log Out</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <div class="page-header">
+    <h1 class="page-title">Mistake <span>Lab</span></h1>
+    <p class="page-sub">Review every wrong answer. Understand why, retry, and turn weaknesses into strengths.</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-strip">
+    <div class="stat-box">
+      <div class="stat-val" id="st-wrong" style="color:var(--wrong)">—</div>
+      <div class="stat-lbl">To Review</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="st-corrected" style="color:var(--correct)">—</div>
+      <div class="stat-lbl">Corrected</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="st-bookmarked" style="color:var(--warn)">—</div>
+      <div class="stat-lbl">Bookmarked</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="st-rate" style="color:var(--white)">—</div>
+      <div class="stat-lbl">Recovery Rate</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main-grid">
+
+    <!-- LEFT: LIST -->
+    <div class="card" style="padding:20px">
+      <div class="list-header">
+        <div class="section-label" style="margin:0">Mistakes</div>
+      </div>
+      <div class="list-filter" style="margin-bottom:14px" id="topic-filters"></div>
+      <div class="mistake-list" id="mistake-list">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: DETAIL -->
+    <div class="card detail-panel" id="detail-panel">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-title">Select a Question</div>
+        <div class="empty-sub">Click any item on the left to see the question, correct answer, and explanation.</div>
+      </div>
+      <div id="detail-content" style="display:none">
+        <div class="q-cluster" id="d-cluster"></div>
+        <div class="q-text" id="d-question"></div>
+        <div class="answer-grid" id="d-answers"></div>
+        <div class="explanation-box">
+          <div class="exp-label">Explanation</div>
+          <div class="exp-text" id="d-explanation">No explanation available.</div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn-action btn-retry" id="btn-retry">Retry This Question</button>
+          <button class="btn-action btn-bookmark" id="btn-bookmark">Bookmark</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/static/common.js"></script>
+<script>
+(async () => {
+  const user = await requireAuth();
+  if (!user) return;
+  initTopbar(user);
+
+  // Load bookmarks from localStorage
+  const BOOKMARK_KEY = 'ct_bookmarks_' + user.id;
+  let bookmarks = new Set(JSON.parse(localStorage.getItem(BOOKMARK_KEY)||'[]'));
+  const saveBookmarks = () => localStorage.setItem(BOOKMARK_KEY, JSON.stringify([...bookmarks]));
+
+  // Load corrected from localStorage (questions retried correctly)
+  const CORRECTED_KEY = 'ct_corrected_' + user.id;
+  let corrected = new Set(JSON.parse(localStorage.getItem(CORRECTED_KEY)||'[]'));
+
+  // Fetch data
+  const [{ data: hist }, { data: allQs }] = await Promise.all([
+    sb.from('quiz_history').select('question_id, kpi_code, cluster, is_correct, selected_answer, created_at')
+      .eq('user_id', user.id).order('created_at', { ascending: false }),
+    sb.from('questions').select('id, text, options, correct, explanation, kpi_code, cluster, difficulty')
+  ]);
+
+  const rows = hist   || [];
+  const qs   = allQs  || [];
+
+  // Build set of wrong question IDs (wrong at least once, not later answered correctly in same session)
+  const wrongIds = new Set();
+  const correctIds = new Set();
+  rows.forEach(r => {
+    if(r.is_correct) correctIds.add(r.question_id);
+    else wrongIds.add(r.question_id);
+  });
+  // Keep only those never subsequently corrected in latest attempt
+  const latestAttempt = {};
+  rows.forEach(r => {
+    if(!latestAttempt[r.question_id]) latestAttempt[r.question_id] = r;
+  });
+  const toReview = Object.entries(latestAttempt)
+    .filter(([,r]) => !r.is_correct)
+    .map(([qid, r]) => {
+      const q = qs.find(q => q.id === qid);
+      return { qid, r, q };
+    })
+    .filter(item => item.q);
+
+  // Stats
+  const totalWrong  = toReview.length;
+  const correctedN  = corrected.size;
+  const bookmarkedN = bookmarks.size;
+  const rate = (totalWrong+correctedN) > 0 ? Math.round(correctedN/(totalWrong+correctedN)*100) : 0;
+
+  document.getElementById('st-wrong').textContent     = totalWrong;
+  document.getElementById('st-corrected').textContent = correctedN;
+  document.getElementById('st-bookmarked').textContent= bookmarkedN;
+  document.getElementById('st-rate').textContent      = rate+'%';
+
+  // Build topic filters
+  const topics = [...new Set(toReview.map(i=>i.r.kpi_code?.split('-')[0]||'General').filter(Boolean))];
+  const filterEl = document.getElementById('topic-filters');
+  let activeFilter = 'all';
+  const allChip = document.createElement('div');
+  allChip.className='filter-chip active'; allChip.textContent='All'; allChip.dataset.val='all';
+  filterEl.appendChild(allChip);
+  topics.slice(0,6).forEach(t=>{
+    const chip=document.createElement('div');
+    chip.className='filter-chip'; chip.textContent=t; chip.dataset.val=t;
+    filterEl.appendChild(chip);
+  });
+  filterEl.querySelectorAll('.filter-chip').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+      filterEl.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFilter=chip.dataset.val;
+      renderList();
+    });
+  });
+
+  // Render list
+  let selectedQid = null;
+  const listEl = document.getElementById('mistake-list');
+
+  function renderList(){
+    const filtered = activeFilter==='all'
+      ? toReview
+      : toReview.filter(i=>(i.r.kpi_code?.split('-')[0]||'General')===activeFilter);
+
+    if(!filtered.length){
+      listEl.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:16px 0">No mistakes here. Great work!</div>';
+      return;
+    }
+    listEl.innerHTML='';
+    filtered.forEach((item,idx)=>{
+      const {qid,r,q} = item;
+      const isCorrected  = corrected.has(qid);
+      const isBookmarked = bookmarks.has(qid);
+      const diff = q.difficulty||'medium';
+      const div=document.createElement('div');
+      div.className='mistake-item'+(isCorrected?' corrected':'')+(isBookmarked?' bookmarked':'')+(qid===selectedQid?' active':'');
+      div.style.animation=`slideIn .2s ${idx*0.04}s ease both`;
+      div.innerHTML=`
+        <div class="mi-kpi ${isCorrected?'corrected':''}">${isCorrected?'Corrected':'Incorrect'} · ${r.kpi_code||'—'}</div>
+        <div class="mi-question">${q.text||'Question text unavailable.'}</div>
+        <div class="mi-meta">
+          <span>${r.cluster||'—'}</span>
+          <span class="diff-badge ${diff}">${diff}</span>
+        </div>`;
+      div.addEventListener('click',()=>{
+        selectedQid=qid;
+        listEl.querySelectorAll('.mistake-item').forEach(d=>d.classList.remove('active'));
+        div.classList.add('active');
+        showDetail(item);
+      });
+      listEl.appendChild(div);
+    });
+  }
+  renderList();
+
+  // Show detail
+  function showDetail({qid, r, q}){
+    document.getElementById('empty-state').style.display='none';
+    const dc=document.getElementById('detail-content');
+    dc.style.display='block';
+    dc.style.animation='fadeUp .25s ease both';
+
+    document.getElementById('d-cluster').textContent   = `${r.cluster||'—'} · ${r.kpi_code||'—'}`;
+    document.getElementById('d-question').textContent  = q.text||'No question text.';
+    document.getElementById('d-explanation').textContent = q.explanation||'No explanation available.';
+
+    // Answers
+    const answersEl=document.getElementById('d-answers');
+    answersEl.innerHTML='';
+    let options=q.options;
+    if(typeof options==='string'){ try{options=JSON.parse(options);}catch{options={};} }
+    if(options&&typeof options==='object'){
+      Object.entries(options).forEach(([key,val])=>{
+        const div=document.createElement('div');
+        div.className='answer-opt';
+        const isSelected = r.selected_answer?.toUpperCase()===key.toUpperCase();
+        const isCorrect  = q.correct?.toUpperCase()===key.toUpperCase();
+        if(isSelected&&!isCorrect) div.classList.add('selected-wrong');
+        if(isCorrect)               div.classList.add('correct-answer');
+        div.innerHTML=`<div class="opt-label">${isSelected?'Your answer':''} ${isCorrect?'Correct answer':''}</div>${key.toUpperCase()}. ${val}`;
+        answersEl.appendChild(div);
+      });
+    } else {
+      answersEl.innerHTML=`<div class="answer-opt correct-answer"><div class="opt-label">Correct Answer</div>${q.correct||'—'}</div>`;
+    }
+
+    // Bookmark btn
+    const bmBtn=document.getElementById('btn-bookmark');
+    bmBtn.classList.toggle('active', bookmarks.has(qid));
+    bmBtn.onclick=()=>{
+      if(bookmarks.has(qid)){bookmarks.delete(qid);bmBtn.classList.remove('active');}
+      else{bookmarks.add(qid);bmBtn.classList.add('active');}
+      saveBookmarks();
+      document.getElementById('st-bookmarked').textContent=bookmarks.size;
+      renderList();
+    };
+
+    // Retry btn — marks as corrected locally
+    document.getElementById('btn-retry').onclick=()=>{
+      if(!corrected.has(qid)){
+        corrected.add(qid);
+        localStorage.setItem(CORRECTED_KEY, JSON.stringify([...corrected]));
+        document.getElementById('st-corrected').textContent=corrected.size;
+        const newRate=Math.round(corrected.size/(toReview.length+corrected.size)*100);
+        document.getElementById('st-rate').textContent=newRate+'%';
+        const active=listEl.querySelector('.mistake-item.active');
+        if(active)active.classList.add('corrected');
+      }
+      // Navigate to targeted practice with this KPI
+      if(typeof Store!=='undefined'){
+        Store.set('retry_question_id', qid);
+        Store.set('cluster', r.cluster||'');
+      }
+      window.location.href='/app/selector.html?retry=1';
+    };
+  }
+
+  // If no mistakes at all
+  if(!toReview.length){
+    listEl.innerHTML='<div style="color:var(--muted);font-size:.85rem;padding:16px 0;text-align:center;line-height:1.6">No mistakes yet.<br>Keep practicing to see your wrong answers here.</div>';
+  }
+
+})();
+</script>
+</body>
+</html>
