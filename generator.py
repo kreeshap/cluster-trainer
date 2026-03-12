@@ -23,16 +23,24 @@ key: str = os.environ.get("SUPABASE_ANON_KEY")
 supabase: Client = create_client(url, key)
 
 # ── PATHS ────────────────────────────────────────────────────────
-BASE_DIR  = Path(__file__).parent
-KB_PATH   = BASE_DIR / "kpi_knowledge_base.json"
+BASE_DIR = Path(__file__).parent
+KB_PATH  = BASE_DIR / "kpi_knowledge_base.json"
+
+# ── MODULE-LEVEL CACHE ───────────────────────────────────────────
+_KB_CACHE: dict | None = None
 
 
 # ════════════════════════════════════════════════════════════════
-#  STEP 1 — LOAD KPI KNOWLEDGE BASE
+#  STEP 1 — LOAD KPI KNOWLEDGE BASE (cached)
 # ════════════════════════════════════════════════════════════════
 
 def load_kpi_knowledge_base() -> dict:
-    """Supports both flat {"kpis": [...]} and clustered {"clusters": {...}} formats."""
+    """Supports both flat {"kpis": [...]} and clustered {"clusters": {...}} formats.
+    Result is cached in memory after first load."""
+    global _KB_CACHE
+    if _KB_CACHE is not None:
+        return _KB_CACHE
+
     with open(KB_PATH, "r") as f:
         data = json.load(f)
 
@@ -48,7 +56,8 @@ def load_kpi_knowledge_base() -> dict:
     else:
         raise KeyError("kpi_knowledge_base.json must have either a 'kpis' or 'clusters' top-level key")
 
-    return {kpi["kpi_code"]: kpi for kpi in kpis}
+    _KB_CACHE = {kpi["kpi_code"]: kpi for kpi in kpis}
+    return _KB_CACHE
 
 
 def get_kpi_context(kpi_code: str) -> dict | None:
@@ -82,24 +91,25 @@ def get_existing_counts(kpi_codes: list[str]) -> dict[str, int]:
         return {}
 
 
-def get_style_examples(cluster: str, question_type: str, n: int = 5) -> list[dict]:
+def get_style_examples(cluster: str, question_type: str, n: int = 2) -> list[dict]:
+    """Fetch a small number of style examples — only fields needed for style reference."""
     try:
         response = (
             supabase.table("questions")
-            .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
+            .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct")
             .eq("cluster", cluster)
             .eq("question_type", question_type)
             .eq("source", "parsed")
-            .limit(20)
+            .limit(10)
             .execute()
         )
         examples = response.data or []
-        if len(examples) < 3:
+        if len(examples) < 2:
             fallback = (
                 supabase.table("questions")
-                .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct, explanation")
+                .select("scenario, question, answer_a, answer_b, answer_c, answer_d, correct")
                 .eq("source", "parsed")
-                .limit(20)
+                .limit(10)
                 .execute()
             )
             examples = (fallback.data or []) + examples
@@ -140,71 +150,56 @@ def check_answer_balance(cluster: str) -> dict:
 def build_prompt(kpi, question_type, difficulty, style_examples, force_correct_answer=None):
     examples_text = ""
     for i, ex in enumerate(style_examples, 1):
-        examples_text += f"""
-Example {i}:
-Scenario: {ex.get('scenario', 'N/A')}
-Question: {ex['question']}
-A) {ex['answer_a']}
-B) {ex['answer_b']}
-C) {ex['answer_c']}
-D) {ex['answer_d']}
-Correct: {ex['correct']}
-Explanation: {ex.get('explanation', '')}
-"""
+        examples_text += (
+            f"\nExample {i}:\n"
+            f"Scenario: {ex.get('scenario', 'N/A')}\n"
+            f"Question: {ex['question']}\n"
+            f"A) {ex['answer_a']}\n"
+            f"B) {ex['answer_b']}\n"
+            f"C) {ex['answer_c']}\n"
+            f"D) {ex['answer_d']}\n"
+            f"Correct: {ex['correct']}\n"
+        )
 
-    force_instruction = ""
-    if force_correct_answer:
-        force_instruction = f"\nIMPORTANT: The correct answer MUST be option {force_correct_answer}. Design the question and answers so that {force_correct_answer} is the best answer.\n"
+    force_instruction = (
+        f"\nIMPORTANT: The correct answer MUST be option {force_correct_answer}.\n"
+        if force_correct_answer else ""
+    )
 
     kpi_name       = kpi.get("kpi_name", "")
     kpi_code       = kpi.get("kpi_code", "")
     cluster        = kpi.get("cluster", kpi.get("instructional_area", ""))
     definition     = kpi.get("definition", f"Understand and apply: {kpi_name}")
     formula        = kpi.get("formula", "N/A")
-    real_world     = kpi.get("real_world_context", f"This KPI applies to real-world business scenarios in {cluster}.")
-    misconceptions = kpi.get("common_misconceptions", "Students often confuse related concepts or misapply terminology.")
+    real_world     = kpi.get("real_world_context", f"Applies to real-world business scenarios in {cluster}.")
+    misconceptions = kpi.get("common_misconceptions", "Students often confuse related concepts.")
     angle          = kpi.get(f"{difficulty}_angle", f"A {difficulty}-level question about {kpi_name}")
 
-    return f"""You are an expert DECA exam question writer. Your job is to write high-quality, realistic DECA-style multiple choice questions.
+    return f"""You are a DECA exam question writer. Write ONE multiple choice question.
 
-══ KPI KNOWLEDGE (use this as your content source) ══
-KPI Code: {kpi_code}
-KPI Name: {kpi_name}
-Cluster: {cluster}
+KPI: {kpi_code} — {kpi_name} ({cluster})
 Definition: {definition}
 Formula: {formula}
-Real World Context: {real_world}
-Common Misconceptions: {misconceptions}
-{difficulty.capitalize()} Angle to Use: {angle}
+Real World: {real_world}
+Misconceptions: {misconceptions}
+Angle: {angle}
 
-{examples_text if examples_text else "No examples available — write in standard DECA exam style."}
+{examples_text if examples_text else "Use standard DECA exam style."}
 
-══ YOUR TASK ══
-Write ONE new DECA-style question with these specifications:
-- Question Type: {question_type}
-- Difficulty: {difficulty}
-- Topic: {kpi_name} ({kpi_code})
+Task: Write a {difficulty} {question_type} question about {kpi_name}.
 {force_instruction}
+Rules: include a 2-4 sentence scenario if type is scenario/calculation | 4 plausible choices, 1 clearly correct | wrong answers should reflect common misconceptions | brief 1-sentence explanation
 
-Rules:
-1. Write a realistic business scenario (2-4 sentences) if question_type is "scenario" or "calculation"
-2. The question should end with a question mark
-3. All four answer choices must be plausible — wrong answers should be common misconceptions or close alternatives
-4. Only ONE answer should be clearly correct
-5. The explanation should be 1-2 sentences explaining WHY the correct answer is right
-6. Match the length and tone of the style examples above
-7. Do NOT copy content from the style examples
-
-Return ONLY valid JSON in this exact format — no markdown, no extra text:
+Return ONLY valid JSON, no markdown:
 {{
-  "scenario": "Business scenario text here or null if not applicable",
-  "question": "The question text ending with a question mark?",
-  "answer_a": "First answer choice",
-  "answer_b": "Second answer choice",
-  "answer_c": "Third answer choice",
-  "answer_d": "Fourth answer choice",
+  "scenario": "scenario text or null",
+  "question": "question text?",
+  "answer_a": "...",
+  "answer_b": "...",
+  "answer_c": "...",
+  "answer_d": "...",
   "correct": "A",
-  "explanation": "Brief explanation of why the correct answer is right.",
+  "explanation": "Why the correct answer is right.",
   "kpi_code": "{kpi_code}",
   "cluster": "{cluster}",
   "question_type": "{question_type}",
@@ -220,19 +215,19 @@ def call_groq_with_retry(prompt: str, max_retries: int = 8) -> str | None:
             response = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.8
+                temperature=0.8,
+                max_tokens=350,
             )
             return response.choices[0].message.content.strip()
 
         except Exception as e:
             err = str(e)
             if "429" in err or "rate_limit_exceeded" in err:
-                # Parse wait time from error message
-                wait = 135  # safe default
+                wait = 135
                 match = re.search(r'try again in (\d+)m([\d.]+)s', err)
                 if match:
                     wait = int(match.group(1)) * 60 + float(match.group(2)) + 5
-                print(f"\n  ⏳ Rate limit — waiting {int(wait)}s "
+                print(f"\n  Rate limit — waiting {int(wait)}s "
                       f"(attempt {attempt + 1}/{max_retries})...", flush=True)
                 time.sleep(wait)
             else:
@@ -265,8 +260,13 @@ def generate_question(
         return None
 
     try:
-        clean    = re.sub(r"```(?:json)?|```", "", raw).strip()
-        question = json.loads(clean)
+        # Strip markdown fences, then extract only the JSON object
+        clean = re.sub(r"```(?:json)?|```", "", raw).strip()
+        start = clean.find("{")
+        end   = clean.rfind("}") + 1
+        if start == -1 or end == 0:
+            raise json.JSONDecodeError("No JSON object found", clean, 0)
+        question = json.loads(clean[start:end])
     except json.JSONDecodeError as e:
         print(f"  ✗ JSON parse error: {e}")
         print(f"  Raw: {raw[:200]}")
@@ -278,12 +278,18 @@ def generate_question(
             print(f"  ✗ Missing field: {field}")
             return None
 
-    # Sanitize correct field — must be a single A/B/C/D
     correct = question["correct"].strip().upper()
     question["correct"] = correct[0] if correct else "A"
     if question["correct"] not in ("A", "B", "C", "D"):
         print(f"  ✗ Invalid correct answer: {question['correct']}")
         return None
+
+    # Force these fields — never trust the model to return them correctly
+    question["kpi_code"]      = kpi_code
+    question["cluster"]       = cluster
+    question["question_type"] = question_type
+    question["difficulty"]    = difficulty
+    question["source"]        = "generated"
 
     if save_to_db:
         try:
@@ -328,7 +334,6 @@ def run_generation_batch(
     kb      = load_kpi_knowledge_base()
     targets = kpi_codes if kpi_codes else list(kb.keys())
 
-    # ── CHECK WHICH KPIs ARE ALREADY DONE ──────────────────────
     print("\n  Checking existing question counts in DB...", flush=True)
     existing = get_existing_counts(targets)
 
@@ -356,7 +361,7 @@ def run_generation_batch(
     for idx, kpi_code in enumerate(pending_kpis):
         kpi = kb.get(kpi_code)
         if not kpi:
-            print(f"⚠ Skipping unknown KPI: {kpi_code}")
+            print(f"Skipping unknown KPI: {kpi_code}")
             continue
 
         cluster  = kpi.get("cluster", kpi.get("instructional_area", "Unknown"))
@@ -369,7 +374,6 @@ def run_generation_batch(
             print(f"  (resuming: {already} already saved, generating {need} more)")
 
         clusters_seen.add(cluster)
-        # Skip the slots already covered
         plan          = plan_for(questions_per_kpi)[already:]
         kpi_generated = 0
 
@@ -383,20 +387,26 @@ def run_generation_batch(
                 label += f" → force={force}"
             print(f"  {label}", end=" ", flush=True)
 
-            result = generate_question(
-                kpi_code=kpi_code,
-                question_type=q_type,
-                difficulty=diff,
-                force_correct_answer=force,
-                save_to_db=True,
-            )
+            result = None
+            for attempt in range(3):
+                result = generate_question(
+                    kpi_code=kpi_code,
+                    question_type=q_type,
+                    difficulty=diff,
+                    force_correct_answer=force,
+                    save_to_db=True,
+                )
+                if result:
+                    break
+                if attempt < 2:
+                    print(f"  ↻ Retrying ({attempt + 2}/3)...", end=" ", flush=True)
 
             if result:
                 total_generated += 1
                 kpi_generated   += 1
             else:
                 total_failed += 1
-                print("  ✗ FAILED")
+                print("  ✗ FAILED after 3 attempts")
 
             if total_generated > 0 and total_generated % check_balance_every == 0:
                 print(f"\n  ── Balance Check @ {total_generated} questions ──")
